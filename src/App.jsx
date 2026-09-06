@@ -237,7 +237,7 @@ function Tab({ session }) {
 
   const totals = useMemo(() => {
     const acc = friends.map((f) => ({
-      ...f, units: 0, days: 0, dry: 0, excuses: [], drinkCounts: {},
+      ...f, units: 0, days: 0, dry: 0, excuses: [], drinkCounts: {}, totalDrinks: 0, maxDayUnits: 0,
     }));
     const byId = Object.fromEntries(acc.map((a) => [a.id, a]));
     Object.entries(entries).forEach(([date, perFriend]) => {
@@ -247,9 +247,10 @@ function Tab({ session }) {
         const u = unitsOf(e.drinks);
         if (u > 0) {
           row.units += u; row.days += 1;
+          row.maxDayUnits = Math.max(row.maxDayUnits, u);
           DRINKS.forEach((d) => {
             const c = e.drinks?.[d.id] || 0;
-            if (c) row.drinkCounts[d.id] = (row.drinkCounts[d.id] || 0) + c;
+            if (c) { row.drinkCounts[d.id] = (row.drinkCounts[d.id] || 0) + c; row.totalDrinks += c; }
           });
         } else { row.dry += 1; if (e.excuse) row.excuses.push({ id: e.id, friendId: fid, date, text: e.excuse }); }
       });
@@ -639,7 +640,7 @@ function Ranking({ totals }) {
           <div className="bmain">
             <div className="bname">
               <span>{t.name}</span>
-              <b>{summarizeDrinkCounts(t.drinkCounts)}</b>
+              <b>{t.totalDrinks}</b>
             </div>
             <div className="btrack">
               <div style={{ width: `${(t.units / max) * 100}%`, background: t.color }} />
@@ -647,6 +648,11 @@ function Ranking({ totals }) {
             <div className="bmeta">
               {t.days} {t.days === 1 ? "zi de băut" : "zile de băut"} · {t.dry} fără alcool
             </div>
+            {t.maxDayUnits > 0 && (
+              <div className="bmeta bmeta-bac">
+                Cea mai mare alcoolemie: ≈{estimateBAC(t.maxDayUnits, t.weight_kg).toFixed(3)}%
+              </div>
+            )}
           </div>
         </li>
       ))}
@@ -656,7 +662,7 @@ function Ranking({ totals }) {
 
 /* --------------------------- excuses ------------------------------ */
 
-const REACTION_EMOJIS = ["😂", "😭", "🍺", "🤡", "🔥", "💀"];
+const REACTION_EMOJIS = ["👍", "😂", "😭", "🍺", "🤡", "🔥", "💀"];
 
 function Excuses({ totals, myFriendId }) {
   const all = totals
@@ -664,6 +670,7 @@ function Excuses({ totals, myFriendId }) {
     .sort((a, b) => a.date.localeCompare(b.date));
 
   const [reactions, setReactions] = useState({}); // entryId -> [{reactor_friend_id, emoji}]
+  const [pickerFor, setPickerFor] = useState(null); // entry id whose picker is open, WhatsApp-style
   const entryIdsKey = all.map((e) => e.id).join(",");
 
   const reload = useCallback(() => {
@@ -691,6 +698,7 @@ function Excuses({ totals, myFriendId }) {
     } else {
       await setReaction(entryId, myFriendId, emoji);
     }
+    setPickerFor(null);
     reload();
   };
 
@@ -703,22 +711,30 @@ function Excuses({ totals, myFriendId }) {
         entryReactions.forEach((r) => { counts[r.emoji] = (counts[r.emoji] || 0) + 1; });
         const mine = entryReactions.find((r) => r.reactor_friend_id === myFriendId);
         const canReact = myFriendId && e.friendId !== myFriendId;
+        const pickerOpen = pickerFor === e.id;
         return (
           <li key={e.id}>
             <div className="exday">{Number(e.date.slice(8))}</div>
             <div className="exmain">
               <div className="exwho" style={{ color: e.color }}>{e.name}</div>
               <div className="extext">{e.text}</div>
-              {Object.keys(counts).length > 0 && (
-                <div className="exreactions">
-                  {Object.entries(counts).map(([emoji, count]) => (
-                    <span key={emoji} className={mine?.emoji === emoji ? "exreaction mine" : "exreaction"}>
-                      {emoji} {count}
-                    </span>
-                  ))}
-                </div>
-              )}
-              {canReact && (
+              <div className="exreactrow">
+                {Object.entries(counts).map(([emoji, count]) => (
+                  <span key={emoji} className={mine?.emoji === emoji ? "exreaction mine" : "exreaction"}>
+                    {emoji} {count}
+                  </span>
+                ))}
+                {canReact && (
+                  <button
+                    className="addreact"
+                    onClick={() => setPickerFor(pickerOpen ? null : e.id)}
+                    aria-label="Adaugă o reacție"
+                  >
+                    +🙂
+                  </button>
+                )}
+              </div>
+              {pickerOpen && (
                 <div className="expicker">
                   {REACTION_EMOJIS.map((emoji) => (
                     <button
@@ -932,6 +948,7 @@ function Style() {
 .btrack{height:9px; background:var(--panel); border-radius:5px; margin:6px 0 5px; overflow:hidden}
 .btrack div{height:100%; border-radius:5px}
 .bmeta{font-size:12px; color:var(--mute)}
+.bmeta-bac{color:var(--amber); margin-top:2px; font-weight:600}
 
 .exlist{list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:2px}
 .exlist li{display:flex; gap:14px; padding:12px 2px; border-bottom:1px solid var(--line)}
@@ -939,13 +956,16 @@ function Style() {
 .exmain{flex:1; min-width:0}
 .exwho{font-size:13px; font-weight:600}
 .extext{font-size:15px; margin-top:2px}
-.exreactions{display:flex; flex-wrap:wrap; gap:5px; margin-top:8px}
+.exreactrow{display:flex; flex-wrap:wrap; align-items:center; gap:5px; margin-top:8px; min-height:22px}
 .exreaction{font-size:12px; padding:3px 7px; border-radius:999px; background:var(--panel); border:1px solid var(--line)}
 .exreaction.mine{border-color:var(--amber)}
-.expicker{display:flex; flex-wrap:wrap; gap:4px; margin-top:8px}
-.emojibtn{font-size:15px; padding:3px 6px; border-radius:8px; border:1px solid transparent; opacity:.55}
-.emojibtn:hover{opacity:1; border-color:var(--line)}
-.emojibtn.on{opacity:1; background:var(--panel); border-color:var(--amber)}
+.addreact{font-size:12px; padding:3px 7px; border-radius:999px; color:var(--mute); border:1px solid var(--line)}
+.addreact:hover{color:var(--bone); border-color:var(--amber)}
+.expicker{display:flex; flex-wrap:wrap; gap:4px; margin-top:6px; padding:6px; background:var(--panel);
+  border:1px solid var(--line); border-radius:10px}
+.emojibtn{font-size:17px; padding:4px 7px; border-radius:8px; border:1px solid transparent}
+.emojibtn:hover{background:var(--ink); border-color:var(--line)}
+.emojibtn.on{background:var(--ink); border-color:var(--amber)}
 
 .tabapp input.weightinput.sm{width:60px; flex:0 0 60px; padding:6px 8px; margin-left:auto; text-align:center}
 .kglabel{font-size:12px; color:var(--mute)}
