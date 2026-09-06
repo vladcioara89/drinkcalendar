@@ -2,7 +2,6 @@ import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { supabase } from "./lib/supabaseClient";
 import {
   fetchFriends,
-  addFriend as dbAddFriend,
   removeFriend as dbRemoveFriend,
   updateFriendWeight as dbUpdateFriendWeight,
   fetchEntries,
@@ -24,11 +23,6 @@ const DRINKS = [
   { id: "rum", label: "Rum", serving: "50 ml", ml: 20 },
   { id: "whisky", label: "Whisky", serving: "50 ml", ml: 20 },
   { id: "vodka", label: "Vodka", serving: "50 ml", ml: 20 },
-];
-
-const PALETTE = [
-  "#E8A33D", "#D2603A", "#A8324A", "#79B48C",
-  "#5FA8C7", "#C9A0D0", "#E5D8A8", "#8E7CC3",
 ];
 
 const EXCUSES = [
@@ -287,17 +281,6 @@ function Tab() {
     setSaving(false);
   }, [reloadEntries]);
 
-  const addFriend = useCallback(async (name, weightKg) => {
-    setSaving(true);
-    try {
-      await dbAddFriend(name, PALETTE[friends.length % PALETTE.length], weightKg);
-      setFriends(await fetchFriends());
-    } catch {
-      setStatus("error");
-    }
-    setSaving(false);
-  }, [friends.length]);
-
   const removeFriend = useCallback(async (id) => {
     setSaving(true);
     try {
@@ -345,7 +328,7 @@ function Tab() {
         </div>
         <p className="lede">
           {totals[0] && totals[0].units > 0
-            ? <>Leading the month: <b style={{ color: totals[0].color }}>{totals[0].name}</b>, {fmt(totals[0].units)} units</>
+            ? <>Leading the month: <b style={{ color: totals[0].color }}>{totals[0].name}</b>, {summarizeDrinkCounts(totals[0].drinkCounts)}</>
             : <>Nothing logged yet this month.</>}
           {saving && <span className="sync"> · saving</span>}
           {status === "error" && <span className="sync" style={{ color: "#D2603A" }}> · sync error</span>}
@@ -361,7 +344,6 @@ function Tab() {
         {tab === "friends" && (
           <Friends
             friends={friends}
-            onAdd={addFriend}
             onRemove={removeFriend}
             onUpdateWeight={updateFriendWeight}
           />
@@ -679,37 +661,9 @@ function Excuses({ totals }) {
 
 /* --------------------------- friends ------------------------------ */
 
-function Friends({ friends, onAdd, onRemove, onUpdateWeight }) {
-  const [name, setName] = useState("");
-  const [weight, setWeight] = useState("75");
-  const add = () => {
-    const n = name.trim();
-    const w = Number(weight);
-    if (!n || !w || w <= 0) return;
-    onAdd(n, w);
-    setName("");
-    setWeight("75");
-  };
+function Friends({ friends, onRemove, onUpdateWeight }) {
   return (
     <div>
-      <div className="addrow">
-        <input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && add()}
-          placeholder="Add a name"
-        />
-        <input
-          value={weight}
-          onChange={(e) => setWeight(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && add()}
-          placeholder="kg"
-          type="number"
-          inputMode="numeric"
-          className="weightinput"
-        />
-        <button className="primary" onClick={add}>Add</button>
-      </div>
       <p className="legend">Set your KGs to calculate alcohol in blood:</p>
       <ul className="flist">
         {friends.map((f) => (
@@ -889,10 +843,7 @@ function Style() {
 .exwho{font-size:13px; font-weight:600}
 .extext{font-size:15px; margin-top:2px}
 
-.addrow{display:flex; gap:8px; margin-bottom:18px}
-.addrow .primary{margin-left:0; white-space:nowrap}
-.tabapp input.weightinput{width:64px; flex:0 0 64px; text-align:center}
-.tabapp input.weightinput.sm{width:52px; flex:0 0 52px; padding:6px 8px; margin-left:auto}
+.tabapp input.weightinput.sm{width:52px; flex:0 0 52px; padding:6px 8px; margin-left:auto; text-align:center}
 .kglabel{font-size:12px; color:var(--mute)}
 .flist{list-style:none; margin:0; padding:0}
 .flist li{display:flex; align-items:center; gap:8px; padding:13px 2px; border-bottom:1px solid var(--line); font-size:15px}
