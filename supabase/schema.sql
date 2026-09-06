@@ -1,0 +1,47 @@
+-- The Tab — run this once in your Supabase project's SQL editor
+-- (Project → SQL Editor → New query → paste all of this → Run)
+
+create table friends (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  color text not null default '#E8A33D',
+  created_at timestamptz default now()
+);
+
+create table entries (
+  id uuid primary key default gen_random_uuid(),
+  friend_id uuid not null references friends(id) on delete cascade,
+  day date not null,
+  beer int not null default 0,     -- 500 ml bottles
+  wine int not null default 0,     -- 150 ml glasses
+  rum int not null default 0,      -- 50 ml shots
+  whisky int not null default 0,
+  vodka int not null default 0,
+  excuse text,                     -- filled in only when nothing was drunk
+  updated_at timestamptz default now(),
+  unique (friend_id, day)
+);
+
+-- pure alcohol in ml, so beer vs shots compare fairly
+create view entry_units as
+select *, (beer*25 + wine*18 + rum*20 + whisky*20 + vodka*20) / 10.0 as units
+from entries;
+
+-- monthly leaderboard
+create view monthly_board as
+select date_trunc('month', day) as month,
+       friend_id,
+       sum(units) as units,
+       count(*) filter (where units > 0) as drinking_days,
+       count(*) filter (where units = 0) as dry_days
+from entry_units
+group by 1, 2;
+
+-- RLS: only signed-in users (magic-link auth) can read/write
+alter table friends enable row level security;
+alter table entries enable row level security;
+
+create policy "signed in read"  on entries for select to authenticated using (true);
+create policy "signed in write" on entries for all    to authenticated using (true) with check (true);
+create policy "signed in read f"  on friends for select to authenticated using (true);
+create policy "signed in write f" on friends for all    to authenticated using (true) with check (true);
