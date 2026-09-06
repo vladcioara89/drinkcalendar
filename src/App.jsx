@@ -121,7 +121,7 @@ function Login() {
       password: p,
     });
     setBusy(false);
-    if (error) setError("Wrong PIN.");
+    if (error) setError(`${error.message} (login email: ${SHARED_LOGIN_EMAIL || "MISSING"})`);
   };
 
   return (
