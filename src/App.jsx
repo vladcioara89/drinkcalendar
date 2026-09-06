@@ -697,6 +697,19 @@ function Ranking({ totals }) {
 
 const REACTION_EMOJIS = ["👍", "😊", "😂", "😭", "🍺", "🤡", "🔥", "💀"];
 
+// Plain outline smiley (no color emoji) for the "add a reaction" trigger,
+// matching WhatsApp's monochrome reaction icon.
+function SmileyIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
+      <circle cx="12" cy="12" r="9" />
+      <circle cx="9" cy="10" r="1" fill="currentColor" stroke="none" />
+      <circle cx="15" cy="10" r="1" fill="currentColor" stroke="none" />
+      <path d="M8 14.5c1 1.4 2.5 2 4 2s3-.6 4-2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 function Excuses({ totals, myFriendId }) {
   const all = totals
     .flatMap((t) => t.excuses.map((e) => ({ ...e, name: t.name, color: t.color })))
@@ -750,23 +763,27 @@ function Excuses({ totals, myFriendId }) {
             <div className="exday">{Number(e.date.slice(8))}</div>
             <div className="exmain">
               <div className="exwho" style={{ color: e.color }}>{e.name}</div>
-              <div className="extext">{e.text}</div>
-              <div className="exreactrow">
-                {Object.entries(counts).map(([emoji, count]) => (
-                  <span key={emoji} className={mine?.emoji === emoji ? "exreaction mine" : "exreaction"}>
-                    {emoji} {count}
-                  </span>
-                ))}
+              <div className="extext">
+                {e.text}
                 {canReact && (
                   <button
                     className="addreact"
                     onClick={() => setPickerFor(pickerOpen ? null : e.id)}
                     aria-label="Adaugă o reacție"
                   >
-                    +🙂
+                    <SmileyIcon />
                   </button>
                 )}
               </div>
+              {Object.keys(counts).length > 0 && (
+                <div className="exreactrow">
+                  {Object.entries(counts).map(([emoji, count]) => (
+                    <span key={emoji} className={mine?.emoji === emoji ? "exreaction mine" : "exreaction"}>
+                      {emoji} {count}
+                    </span>
+                  ))}
+                </div>
+              )}
               {pickerOpen && (
                 <div className="expicker">
                   {REACTION_EMOJIS.map((emoji) => (
@@ -989,12 +1006,12 @@ function Style() {
 .exday{font-family:Anton, Impact, sans-serif; font-size:20px; color:var(--mute); min-width:28px}
 .exmain{flex:1; min-width:0}
 .exwho{font-size:13px; font-weight:600}
-.extext{font-size:15px; margin-top:2px}
-.exreactrow{display:flex; flex-wrap:wrap; align-items:center; gap:5px; margin-top:8px; min-height:22px}
+.extext{font-size:15px; margin-top:2px; display:flex; align-items:center; gap:6px}
+.exreactrow{display:flex; flex-wrap:wrap; align-items:center; gap:5px; margin-top:8px}
 .exreaction{font-size:12px; padding:3px 7px; border-radius:999px; background:var(--panel); border:1px solid var(--line)}
 .exreaction.mine{border-color:var(--amber)}
-.addreact{font-size:12px; padding:3px 7px; border-radius:999px; color:var(--mute); border:1px solid var(--line)}
-.addreact:hover{color:var(--bone); border-color:var(--amber)}
+.addreact{color:var(--mute); display:inline-flex; padding:2px}
+.addreact:hover{color:var(--amber)}
 .expicker{display:flex; flex-wrap:wrap; gap:4px; margin-top:6px; padding:6px; background:var(--panel);
   border:1px solid var(--line); border-radius:10px}
 .emojibtn{font-size:17px; padding:4px 7px; border-radius:8px; border:1px solid transparent}
