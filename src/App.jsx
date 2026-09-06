@@ -17,22 +17,22 @@ import {
 /* ------------------------------------------------------------------ */
 
 const DRINKS = [
-  { id: "beer", label: "Beer", serving: "500 ml", ml: 25 },
-  { id: "beer_small", label: "Beer", serving: "300 ml", ml: 15 },
-  { id: "wine", label: "Wine", serving: "150 ml", ml: 18 },
-  { id: "rum", label: "Rum", serving: "50 ml", ml: 20 },
+  { id: "beer", label: "Bere", serving: "500 ml", ml: 25 },
+  { id: "beer_small", label: "Bere", serving: "300 ml", ml: 15 },
+  { id: "wine", label: "Vin", serving: "150 ml", ml: 18 },
+  { id: "rum", label: "Rom", serving: "50 ml", ml: 20 },
   { id: "whisky", label: "Whisky", serving: "50 ml", ml: 20 },
-  { id: "vodka", label: "Vodka", serving: "50 ml", ml: 20 },
+  { id: "vodka", label: "Vodcă", serving: "50 ml", ml: 20 },
 ];
 
 const EXCUSES = [
-  "Driving", "Hungover", "Gym tomorrow", "Sick",
-  "Broke", "Working", "Family thing", "Just didn't",
+  "Conduc", "Mahmureală", "Sală mâine", "Bolnav",
+  "Fără bani", "Lucrez", "Treabă de familie", "Pur și simplu n-am vrut",
 ];
 
-const MONTHS = ["January", "February", "March", "April", "May", "June",
-  "July", "August", "September", "October", "November", "December"];
-const WEEK = ["M", "T", "W", "T", "F", "S", "S"];
+const MONTHS = ["Ianuarie", "Februarie", "Martie", "Aprilie", "Mai", "Iunie",
+  "Iulie", "August", "Septembrie", "Octombrie", "Noiembrie", "Decembrie"];
+const WEEK = ["L", "M", "M", "J", "V", "S", "D"];
 
 /* --------------------------- helpers ------------------------------ */
 
@@ -113,7 +113,7 @@ export default function App() {
     return (
       <div className="tabapp">
         <Style />
-        <div className="empty">Opening the tab…</div>
+        <div className="empty">Se deschide tab-ul…</div>
       </div>
     );
   }
@@ -151,7 +151,7 @@ function Login() {
       password: p,
     });
     setBusy(false);
-    if (error) setError("Wrong name or PIN.");
+    if (error) setError("Nume sau PIN greșit.");
   };
 
   return (
@@ -159,12 +159,12 @@ function Login() {
       <Style />
       <div className="empty" style={{ padding: "72px 24px", textAlign: "left" }}>
         <h1 className="month" style={{ fontSize: 32, marginBottom: 18 }}>THE TAB</h1>
-        <p style={{ marginBottom: 14 }}>Enter your name and PIN to see the tab.</p>
+        <p style={{ marginBottom: 14 }}>Introdu numele și PIN-ul pentru a vedea tab-ul.</p>
         <input
           value={name}
           onChange={(e) => setName(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && submit()}
-          placeholder="Your name"
+          placeholder="Numele tău"
           autoFocus
         />
         <input
@@ -177,7 +177,7 @@ function Login() {
           style={{ marginTop: 10 }}
         />
         <button className="primary" style={{ marginTop: 12 }} onClick={submit} disabled={busy}>
-          {busy ? "Checking…" : "Enter"}
+          {busy ? "Se verifică…" : "Intră"}
         </button>
         {error && <p style={{ color: "#D2603A", marginTop: 10 }}>{error}</p>}
       </div>
@@ -308,7 +308,7 @@ function Tab() {
     return (
       <div className="tabapp">
         <Style />
-        <div className="empty">Opening the tab…</div>
+        <div className="empty">Se deschide tab-ul…</div>
       </div>
     );
   }
@@ -319,19 +319,19 @@ function Tab() {
 
       <header className="head">
         <div className="monthrow">
-          <button className="arrow" onClick={() => shift(-1)} aria-label="Previous month">‹</button>
+          <button className="arrow" onClick={() => shift(-1)} aria-label="Luna precedentă">‹</button>
           <div>
             <h1 className="month">{MONTHS[cursor.m]}</h1>
             <div className="year">{cursor.y}</div>
           </div>
-          <button className="arrow" onClick={() => shift(1)} aria-label="Next month">›</button>
+          <button className="arrow" onClick={() => shift(1)} aria-label="Luna următoare">›</button>
         </div>
         <p className="lede">
           {totals[0] && totals[0].units > 0
-            ? <>Leading the month: <b style={{ color: totals[0].color }}>{totals[0].name}</b>, {summarizeDrinkCounts(totals[0].drinkCounts)}</>
-            : <>Nothing logged yet this month.</>}
-          {saving && <span className="sync"> · saving</span>}
-          {status === "error" && <span className="sync" style={{ color: "#D2603A" }}> · sync error</span>}
+            ? <>Lider luna aceasta: <b style={{ color: totals[0].color }}>{totals[0].name}</b>, {summarizeDrinkCounts(totals[0].drinkCounts)}</>
+            : <>Nimic înregistrat luna aceasta încă.</>}
+          {saving && <span className="sync"> · se salvează</span>}
+          {status === "error" && <span className="sync" style={{ color: "#D2603A" }}> · eroare de sincronizare</span>}
         </p>
       </header>
 
@@ -353,9 +353,9 @@ function Tab() {
       <nav className="tabs">
         {[
           ["calendar", "Calendar"],
-          ["ranking", "Ranking"],
-          ["excuses", "Excuses"],
-          ["friends", "Friends"],
+          ["ranking", "Clasament"],
+          ["excuses", "Scuze"],
+          ["friends", "Prieteni"],
         ].map(([id, label]) => (
           <button
             key={id}
@@ -431,7 +431,7 @@ function Calendar({ friends, entries, cursor, onPick }) {
         })}
       </div>
       <p className="legend">
-        Filled dot = drank. Hollow dot = dry day with a reason. Tap any day to log.
+        Punct plin = a băut. Punct gol = zi fără alcool cu motiv. Apasă pe orice zi pentru a înregistra.
       </p>
     </div>
   );
@@ -475,9 +475,9 @@ function DaySheet({ date, friends, entriesForDay, onSaveEntry, onClearEntry, clo
         <div className="sheethead">
           <div>
             <h2>{label}</h2>
-            <p>What did everyone do?</p>
+            <p>Ce a făcut fiecare?</p>
           </div>
-          <button className="x" onClick={close} aria-label="Close">✕</button>
+          <button className="x" onClick={close} aria-label="Închide">✕</button>
         </div>
 
         {denied && <p className="denied">{NOT_YOUR_RECORD_MESSAGE}</p>}
@@ -503,9 +503,9 @@ function DaySheet({ date, friends, entriesForDay, onSaveEntry, onClearEntry, clo
                 <i className="chip" style={{ background: f.color }} />
                 <span className="rname">{f.name}</span>
                 <span className="rstate">
-                  {!e && <em>not logged</em>}
+                  {!e && <em>neînregistrat</em>}
                   {e && u > 0 && <b>{describeDrinks(e.drinks)}</b>}
-                  {e && u === 0 && <span className="dry">{e.excuse || "dry day"}</span>}
+                  {e && u === 0 && <span className="dry">{e.excuse || "zi fără alcool"}</span>}
                 </span>
               </button>
             );
@@ -541,8 +541,8 @@ function Editor({ friend, entry, onSave, onClear, onCancel }) {
       </div>
 
       <div className="seg">
-        <button className={mode === "drank" ? "on" : ""} onClick={() => setMode("drank")}>Drank</button>
-        <button className={mode === "dry" ? "on" : ""} onClick={() => setMode("dry")}>Didn't drink</button>
+        <button className={mode === "drank" ? "on" : ""} onClick={() => setMode("drank")}>A băut</button>
+        <button className={mode === "dry" ? "on" : ""} onClick={() => setMode("dry")}>Nu a băut</button>
       </div>
 
       {mode === "drank" ? (
@@ -553,17 +553,17 @@ function Editor({ friend, entry, onSave, onClear, onCancel }) {
                 {dk.label}<small>{dk.serving}</small>
               </div>
               <div className="stepper">
-                <button onClick={() => bump(dk.id, -1)} aria-label={`One less ${dk.label}`}>−</button>
+                <button onClick={() => bump(dk.id, -1)} aria-label={`Cu unul mai puțin ${dk.label}`}>−</button>
                 <span>{drinks[dk.id] || 0}</span>
-                <button onClick={() => bump(dk.id, 1)} aria-label={`One more ${dk.label}`}>+</button>
+                <button onClick={() => bump(dk.id, 1)} aria-label={`Cu unul mai mult ${dk.label}`}>+</button>
               </div>
             </div>
           ))}
           <div className="totline">
-            ≈{estimateBAC(total, friend.weight_kg).toFixed(3)}% estimated alcoholaemia
+            ≈{estimateBAC(total, friend.weight_kg).toFixed(3)}% alcoolemie estimată
             <small className="bacnote">
-              Rough estimate assuming it all hit at once — not a real reading, not for
-              deciding whether to drive.
+              Estimare aproximativă presupunând că totul a fost consumat deodată —
+              nu e o citire reală, nu te baza pe ea ca să decizi dacă poți conduce.
             </small>
           </div>
         </div>
@@ -583,25 +583,25 @@ function Editor({ friend, entry, onSave, onClear, onCancel }) {
           <input
             value={excuse}
             onChange={(e) => setExcuse(e.target.value)}
-            placeholder="Or type the real reason"
+            placeholder="Sau scrie motivul real"
           />
         </div>
       )}
 
       <div className="acts">
-        <button className="ghost" onClick={onCancel}>Cancel</button>
-        {entry && <button className="ghost" onClick={onClear}>Delete</button>}
+        <button className="ghost" onClick={onCancel}>Anulează</button>
+        {entry && <button className="ghost" onClick={onClear}>Șterge</button>}
         <button
           className="primary"
           onClick={() =>
             onSave(
               mode === "drank"
                 ? { drinks, excuse: null }
-                : { drinks: {}, excuse: excuse.trim() || "no reason given" }
+                : { drinks: {}, excuse: excuse.trim() || "fără motiv" }
             )
           }
         >
-          Save
+          Salvează
         </button>
       </div>
     </div>
@@ -613,7 +613,7 @@ function Editor({ friend, entry, onSave, onClear, onCancel }) {
 function Ranking({ totals }) {
   const max = Math.max(...totals.map((t) => t.units), 1);
   const any = totals.some((t) => t.units > 0);
-  if (!any) return <p className="empty">No drinks logged this month. The board fills up as people log days.</p>;
+  if (!any) return <p className="empty">Nicio băutură înregistrată luna aceasta. Clasamentul se umple pe măsură ce lumea își notează zilele.</p>;
   return (
     <ol className="board">
       {totals.map((t, i) => (
@@ -628,7 +628,7 @@ function Ranking({ totals }) {
               <div style={{ width: `${(t.units / max) * 100}%`, background: t.color }} />
             </div>
             <div className="bmeta">
-              {t.days} drinking {t.days === 1 ? "day" : "days"} · {t.dry} dry
+              {t.days} {t.days === 1 ? "zi de băut" : "zile de băut"} · {t.dry} fără alcool
             </div>
           </div>
         </li>
@@ -643,7 +643,7 @@ function Excuses({ totals }) {
   const all = totals
     .flatMap((t) => t.excuses.map((e) => ({ ...e, name: t.name, color: t.color })))
     .sort((a, b) => a.date.localeCompare(b.date));
-  if (!all.length) return <p className="empty">No dry days logged yet. Reasons show up here.</p>;
+  if (!all.length) return <p className="empty">Nicio zi fără alcool înregistrată încă. Motivele apar aici.</p>;
   return (
     <ul className="exlist">
       {all.map((e, i) => (
@@ -672,7 +672,7 @@ function Friends({ friends, onRemove, onUpdateWeight }) {
       </ul>
       <p className="legend">
         <button className="ghost sm" style={{ marginLeft: 0 }} onClick={() => supabase.auth.signOut()}>
-          Sign out
+          Ieși din cont
         </button>
       </p>
     </div>
@@ -701,7 +701,7 @@ function FriendRow({ friend, onRemove, onUpdateWeight }) {
         inputMode="numeric"
       />
       <span className="kglabel">kg</span>
-      <button className="ghost sm" onClick={() => onRemove(friend.id)}>Remove</button>
+      <button className="ghost sm" onClick={() => onRemove(friend.id)}>Elimină</button>
     </li>
   );
 }
