@@ -258,6 +258,11 @@ function Tab({ session }) {
     return acc.sort((a, b) => b.units - a.units);
   }, [friends, entries]);
 
+  const lache = useMemo(
+    () => (totals.length > 1 ? totals.slice().sort((a, b) => a.totalDrinks - b.totalDrinks)[0] : null),
+    [totals]
+  );
+
   const shift = (n) => {
     const d = new Date(cursor.y, cursor.m + n, 1);
     setCursor({ y: d.getFullYear(), m: d.getMonth() });
@@ -350,6 +355,12 @@ function Tab({ session }) {
           {saving && <span className="sync"> · se salvează</span>}
           {status === "error" && <span className="sync" style={{ color: "#D2603A" }}> · eroare de sincronizare</span>}
         </p>
+        {lache && (
+          <p className="lede">
+            Lache luna asta: <b style={{ color: lache.color }}>{lache.name}</b>,{" "}
+            {lache.totalDrinks} {lache.totalDrinks === 1 ? "băutură" : "băuturi"}
+          </p>
+        )}
       </header>
 
       <main className="body">
@@ -632,37 +643,59 @@ function Ranking({ totals }) {
   const max = Math.max(...totals.map((t) => t.units), 1);
   const any = totals.some((t) => t.units > 0);
   if (!any) return <p className="empty">Nicio băutură înregistrată luna aceasta. Clasamentul se umple pe măsură ce lumea își notează zilele.</p>;
+
+  const byBAC = totals
+    .filter((t) => t.maxDayUnits > 0)
+    .map((t) => ({ ...t, bac: estimateBAC(t.maxDayUnits, t.weight_kg) }))
+    .sort((a, b) => b.bac - a.bac);
+
   return (
-    <ol className="board">
-      {totals.map((t, i) => (
-        <li key={t.id}>
-          <div className="brank">{i + 1}</div>
-          <div className="bmain">
-            <div className="bname">
-              <span>{t.name}</span>
-              <b>{t.totalDrinks}</b>
-            </div>
-            <div className="btrack">
-              <div style={{ width: `${(t.units / max) * 100}%`, background: t.color }} />
-            </div>
-            <div className="bmeta">
-              {t.days} {t.days === 1 ? "zi de băut" : "zile de băut"} · {t.dry} fără alcool
-            </div>
-            {t.maxDayUnits > 0 && (
-              <div className="bmeta bmeta-bac">
-                Cea mai mare alcoolemie: ≈{estimateBAC(t.maxDayUnits, t.weight_kg).toFixed(3)}%
+    <>
+      <ol className="board">
+        {totals.map((t, i) => (
+          <li key={t.id}>
+            <div className="brank">{i + 1}</div>
+            <div className="bmain">
+              <div className="bname">
+                <span>{t.name}</span>
+                <b>{t.totalDrinks}</b>
               </div>
-            )}
-          </div>
-        </li>
-      ))}
-    </ol>
+              <div className="btrack">
+                <div style={{ width: `${(t.units / max) * 100}%`, background: t.color }} />
+              </div>
+              <div className="bmeta">
+                {t.days} {t.days === 1 ? "zi de băut" : "zile de băut"} · {t.dry} fără alcool
+              </div>
+            </div>
+          </li>
+        ))}
+      </ol>
+
+      {byBAC.length > 0 && (
+        <>
+          <h3 className="boardhead">Cea mai mare alcoolemie luna aceasta</h3>
+          <ol className="board">
+            {byBAC.map((t, i) => (
+              <li key={t.id}>
+                <div className="brank">{i + 1}</div>
+                <div className="bmain">
+                  <div className="bname">
+                    <span>{t.name}</span>
+                    <b>≈{t.bac.toFixed(3)}%</b>
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ol>
+        </>
+      )}
+    </>
   );
 }
 
 /* --------------------------- excuses ------------------------------ */
 
-const REACTION_EMOJIS = ["👍", "😂", "😭", "🍺", "🤡", "🔥", "💀"];
+const REACTION_EMOJIS = ["👍", "😊", "😂", "😭", "🍺", "🤡", "🔥", "💀"];
 
 function Excuses({ totals, myFriendId }) {
   const all = totals
@@ -936,6 +969,8 @@ function Style() {
   font-size:14px; color:var(--mute)}
 .ghost.sm{padding:6px 10px; font-size:12px; margin-left:auto}
 
+.boardhead{font-family:Anton, Impact, sans-serif; font-weight:400; font-size:16px;
+  text-transform:uppercase; letter-spacing:.02em; color:var(--amber); margin:28px 0 14px}
 .board{list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:16px}
 .board li{display:flex; gap:12px; align-items:flex-start}
 .brank{font-family:Anton, Impact, sans-serif; font-size:26px; color:var(--line); min-width:26px}
@@ -948,7 +983,6 @@ function Style() {
 .btrack{height:9px; background:var(--panel); border-radius:5px; margin:6px 0 5px; overflow:hidden}
 .btrack div{height:100%; border-radius:5px}
 .bmeta{font-size:12px; color:var(--mute)}
-.bmeta-bac{color:var(--amber); margin-top:2px; font-weight:600}
 
 .exlist{list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:2px}
 .exlist li{display:flex; gap:14px; padding:12px 2px; border-bottom:1px solid var(--line)}
