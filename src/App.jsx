@@ -662,6 +662,10 @@ function Ranking({ totals }) {
     .map((t) => ({ ...t, bac: estimateBAC(t.maxDayUnits, t.weight_kg) }))
     .sort((a, b) => b.bac - a.bac)[0];
 
+  const mostExcuses = totals
+    .filter((t) => t.excuses.length > 0)
+    .sort((a, b) => b.excuses.length - a.excuses.length)[0];
+
   return (
     <>
       <ol className="board">
@@ -693,6 +697,16 @@ function Ranking({ totals }) {
             <div className="peakdate">
               {Number(peak.maxDayDate.slice(8))} {MONTHS[Number(peak.maxDayDate.slice(5, 7)) - 1]}
             </div>
+          </div>
+        </>
+      )}
+
+      {mostExcuses && (
+        <>
+          <h3 className="boardhead">Cele mai multe scuze</h3>
+          <div className="peakcard">
+            <span style={{ color: mostExcuses.color }}>{mostExcuses.name}</span>
+            <b>{mostExcuses.excuses.length}</b>
           </div>
         </>
       )}
