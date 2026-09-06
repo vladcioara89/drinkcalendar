@@ -1033,15 +1033,15 @@ function Style() {
   font-size:14px; color:var(--mute)}
 .ghost.sm{padding:6px 10px; font-size:12px; margin-left:auto}
 
-.boardhead{font-family:Anton, Impact, sans-serif; font-weight:400; font-size:16px;
+.boardhead{font-family:Anton, Impact, sans-serif; font-weight:400; font-size:14px;
   text-transform:uppercase; letter-spacing:.02em; color:var(--amber);
-  margin:120px 0 16px; padding-top:28px; border-top:1px solid var(--line)}
-.peakcard{display:flex; align-items:baseline; flex-wrap:wrap; gap:8px 12px;
-  padding:16px; border:1px solid var(--line); border-radius:10px; background:var(--panel)}
-.peakcard span{font-weight:700; font-size:16px}
-.peakcard b{color:var(--amber); font-size:22px; font-family:Anton, Impact, sans-serif; font-weight:400}
-.peakdate{width:100%; font-size:12px; color:var(--mute)}
-.board{list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:16px}
+  margin:32px 0 10px; padding-top:16px; border-top:1px solid var(--line)}
+.peakcard{display:flex; align-items:baseline; flex-wrap:wrap; gap:6px 10px;
+  padding:11px 14px; border:1px solid var(--line); border-radius:10px; background:var(--panel)}
+.peakcard span{font-weight:700; font-size:14px}
+.peakcard b{color:var(--amber); font-size:18px; font-family:Anton, Impact, sans-serif; font-weight:400}
+.peakdate{width:100%; font-size:11px; color:var(--mute)}
+.board{list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:12px}
 .board li{display:flex; gap:12px; align-items:flex-start}
 .brank{font-family:Anton, Impact, sans-serif; font-size:26px; color:var(--line); min-width:26px}
 .board li:first-child .brank{color:var(--amber)}
