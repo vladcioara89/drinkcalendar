@@ -90,29 +90,32 @@ export default function App() {
 
   if (!session) return <Login />;
 
-  return <Tab session={session} />;
+  return <Tab />;
 }
 
 /* ---------------------------- login -------------------------------- */
 
+// Everyone in the group signs into the same Supabase auth user; the "PIN"
+// is that account's password. Set VITE_TAB_LOGIN_EMAIL to whatever email
+// you used when creating that one shared user in Supabase.
+const SHARED_LOGIN_EMAIL = import.meta.env.VITE_TAB_LOGIN_EMAIL;
+
 function Login() {
-  const [email, setEmail] = useState("");
-  const [sent, setSent] = useState(false);
+  const [pin, setPin] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
-  const send = async () => {
-    const e = email.trim();
-    if (!e || busy) return;
+  const submit = async () => {
+    const p = pin.trim();
+    if (!p || busy) return;
     setBusy(true);
     setError("");
-    const { error } = await supabase.auth.signInWithOtp({
-      email: e,
-      options: { emailRedirectTo: window.location.origin },
+    const { error } = await supabase.auth.signInWithPassword({
+      email: SHARED_LOGIN_EMAIL,
+      password: p,
     });
     setBusy(false);
-    if (error) setError(error.message);
-    else setSent(true);
+    if (error) setError("Wrong PIN.");
   };
 
   return (
@@ -120,25 +123,20 @@ function Login() {
       <Style />
       <div className="empty" style={{ padding: "72px 24px", textAlign: "left" }}>
         <h1 className="month" style={{ fontSize: 32, marginBottom: 18 }}>THE TAB</h1>
-        {sent ? (
-          <p>Check <b>{email}</b> for a magic link, then come back here.</p>
-        ) : (
-          <>
-            <p style={{ marginBottom: 14 }}>Sign in with your email to see the tab.</p>
-            <input
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && send()}
-              placeholder="you@email.com"
-              type="email"
-              autoFocus
-            />
-            <button className="primary" style={{ marginTop: 12 }} onClick={send} disabled={busy}>
-              {busy ? "Sending…" : "Send magic link"}
-            </button>
-            {error && <p style={{ color: "#D2603A", marginTop: 10 }}>{error}</p>}
-          </>
-        )}
+        <p style={{ marginBottom: 14 }}>Enter the group PIN to see the tab.</p>
+        <input
+          value={pin}
+          onChange={(e) => setPin(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && submit()}
+          placeholder="PIN"
+          type="password"
+          inputMode="numeric"
+          autoFocus
+        />
+        <button className="primary" style={{ marginTop: 12 }} onClick={submit} disabled={busy}>
+          {busy ? "Checking…" : "Enter"}
+        </button>
+        {error && <p style={{ color: "#D2603A", marginTop: 10 }}>{error}</p>}
       </div>
     </div>
   );
@@ -146,7 +144,7 @@ function Login() {
 
 /* --------------------------- main tab ------------------------------ */
 
-function Tab({ session }) {
+function Tab() {
   const [friends, setFriends] = useState([]);
   const [entries, setEntries] = useState({}); // { [day]: { [friendId]: {drinks, excuse} } }, scoped to cursor's month
   const [status, setStatus] = useState("loading"); // loading | ready | error
@@ -287,12 +285,7 @@ function Tab({ session }) {
         {tab === "ranking" && <Ranking totals={totals} />}
         {tab === "excuses" && <Excuses totals={totals} />}
         {tab === "friends" && (
-          <Friends
-            friends={friends}
-            onAdd={addFriend}
-            onRemove={removeFriend}
-            email={session.user.email}
-          />
+          <Friends friends={friends} onAdd={addFriend} onRemove={removeFriend} />
         )}
       </main>
 
@@ -584,7 +577,7 @@ function Excuses({ totals }) {
 
 /* --------------------------- friends ------------------------------ */
 
-function Friends({ friends, onAdd, onRemove, email }) {
+function Friends({ friends, onAdd, onRemove }) {
   const [name, setName] = useState("");
   const add = () => {
     const n = name.trim();
@@ -617,7 +610,6 @@ function Friends({ friends, onAdd, onRemove, email }) {
         alcohol, so a beer counts as 2.5 and a shot as 2.
       </p>
       <p className="legend">
-        Signed in as {email}.{" "}
         <button className="ghost sm" style={{ marginLeft: 0 }} onClick={() => supabase.auth.signOut()}>
           Sign out
         </button>

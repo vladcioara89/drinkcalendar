@@ -17,9 +17,10 @@ Supabase — no local state left. What's here:
   scoped to the visible month) plus the row ↔ UI-shape converters.
 - [src/App.jsx](src/App.jsx) — the prototype component from
   [DrinkTab.jsx](DrinkTab.jsx), wired to `db.js` instead of `window.storage`, gated
-  behind a Supabase magic-link login (the schema's RLS policies require
-  `authenticated`, so the app can't work without a session). `DrinkTab.jsx` is left
-  at the repo root untouched as the original reference.
+  behind a shared group PIN (the schema's RLS policies require `authenticated`, so
+  the app can't work without a session — see "Group PIN, not per-person login"
+  below for how that works without email signup). `DrinkTab.jsx` is left at the
+  repo root untouched as the original reference.
 
 **Not run yet**: this environment has no Node/npm on PATH, so dependencies were never
 installed and the app was never started. Before it'll do anything:
@@ -51,9 +52,9 @@ want a guarantee, add a GitHub Action on a cron that pings the project every 3 d
 1. `npm install` in this folder.
 2. Create a free Supabase project, run the SQL below in the SQL editor.
 3. Put the project URL and anon key in `.env` as `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY`
-   (copy `.env.example`).
-4. `npm run dev`, sign in with the magic-link screen using an email you've added under
-   Authentication → Users.
+   (copy `.env.example`), and set up the shared login (see "Group PIN, not
+   per-person login" below) and its `VITE_TAB_LOGIN_EMAIL`.
+4. `npm run dev`, sign in with your group's PIN.
 5. Push to GitHub, connect the repo in Cloudflare Pages. Build command `npm run build`,
    output directory `dist`.
 6. Send your friends the URL. On iPhone: Share → Add to Home Screen. On Android the
@@ -114,9 +115,26 @@ create policy "signed in read f"  on friends for select to authenticated using (
 create policy "signed in write f" on friends for all    to authenticated using (true) with check (true);
 ```
 
-For a closed friend group, Supabase magic-link email auth is the least friction —
-no passwords to forget. Turn off public signups in the auth settings and invite the
-accounts yourself so strangers can't wander in.
+## Group PIN, not per-person login
+
+The app is public on the internet, and the RLS policies above require an
+`authenticated` Supabase session — without some gate, anyone who finds the URL
+could read and edit everyone's log. Rather than per-person email accounts, everyone
+in the group shares **one Supabase auth user**, and the PIN people type into the
+app is that account's password.
+
+Set it up once:
+
+1. Supabase dashboard → Authentication → Users → **Add user** → **Create new user**.
+2. Email can be anything valid-looking, e.g. `group@thetab.local` — it's never
+   actually emailed. Password is the PIN your group will use. Check
+   **Auto Confirm User**.
+3. Set `VITE_TAB_LOGIN_EMAIL` (in `.env` locally, and as a Cloudflare Pages build
+   variable) to whatever email you used in step 2.
+
+To change the PIN later, edit that same user's password in Authentication → Users.
+There's no per-person audit trail this way — everyone edits as the same account —
+which is fine for a small group that trusts each other.
 
 ## Ideas worth adding later
 
