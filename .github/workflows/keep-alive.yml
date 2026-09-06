@@ -1,0 +1,24 @@
+name: Keep Supabase project awake
+
+# Supabase pauses a free-tier project after a week of zero database
+# activity. This pings the REST API every 2 days so that never happens —
+# the request itself (even if RLS returns no rows) counts as activity.
+on:
+  schedule:
+    - cron: "0 6 */2 * *" # every 2 days at 06:00 UTC
+  workflow_dispatch: {} # lets you trigger it manually from the Actions tab
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Supabase REST API
+        # The anon key is meant to be public (it's already embedded in the
+        # shipped app bundle), so it's fine hardcoded here rather than in
+        # a repo secret.
+        run: |
+          curl -sf -X GET \
+            "https://bcqzyydrplpyxeyxtvht.supabase.co/rest/v1/friends?select=id&limit=1" \
+            -H "apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJjcXp5eWRycGxweXhleXh0dmh0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg2OTQ0MzMsImV4cCI6MjEwNDI3MDQzM30.79RfPBeyy6DZRlTBFeBYGCaAaz0XbUa8dIcbomOF95k" \
+            -o /dev/null \
+            -w "Status: %{http_code}\n"

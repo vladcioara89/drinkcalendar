@@ -43,8 +43,12 @@ as a user (Authentication → Users) since public signups should stay off.
 | Database + login | Supabase free tier | Postgres, auth, realtime. 500 MB DB, 50k monthly users. Way beyond what 10 friends need. |
 
 Total cost: €0. The only real catch is that **Supabase pauses a free project after
-7 days with zero traffic**. If your friends log most days it never triggers. If you
-want a guarantee, add a GitHub Action on a cron that pings the project every 3 days.
+7 days with zero traffic**. [.github/workflows/keep-alive.yml](.github/workflows/keep-alive.yml)
+pings the project every 2 days via a scheduled GitHub Action, so this never
+triggers even if nobody logs anything for a while. GitHub Actions runs it
+automatically once the workflow file is on the default branch — no setup
+needed. Check the repo's **Actions** tab to see it running, or trigger it
+manually from there ("Run workflow").
 
 ## Setup, roughly 15 minutes (scaffold + wiring already done)
 
