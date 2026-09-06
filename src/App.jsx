@@ -111,7 +111,7 @@ export default function App() {
 
   if (!session) return <Login />;
 
-  return <Tab session={session} />;
+  return <Tab />;
 }
 
 /* ---------------------------- login -------------------------------- */
@@ -178,7 +178,7 @@ function Login() {
 
 /* --------------------------- main tab ------------------------------ */
 
-function Tab({ session }) {
+function Tab() {
   const [friends, setFriends] = useState([]);
   const [entries, setEntries] = useState({}); // { [day]: { [friendId]: {drinks, excuse} } }, scoped to cursor's month
   const [status, setStatus] = useState("loading"); // loading | ready | error
@@ -208,11 +208,6 @@ function Tab({ session }) {
     fetchFriends().then(setFriends).catch(() => setStatus("error"));
   }, []);
 
-  const myFriendId = useMemo(
-    () => friends.find((f) => f.auth_user_id === session.user.id)?.id ?? null,
-    [friends, session.user.id]
-  );
-
   useEffect(() => {
     setStatus("loading");
     reloadEntries();
@@ -241,13 +236,19 @@ function Tab({ session }) {
     setOpenDay(null);
   };
 
+  // Postgres code 42501 = row-level security rejected the write (trying to
+  // edit someone else's entry). Rethrow so the caller can show that
+  // specifically instead of the generic sync-error banner.
   const saveEntry = useCallback(async (friendId, date, entry) => {
     setSaving(true);
     try {
       await dbSaveEntry(friendId, date, entry);
       await reloadEntries();
-    } catch {
+    } catch (err) {
+      setSaving(false);
+      if (err?.code === "42501") throw err;
       setStatus("error");
+      return;
     }
     setSaving(false);
   }, [reloadEntries]);
@@ -257,8 +258,11 @@ function Tab({ session }) {
     try {
       await dbDeleteEntry(friendId, date);
       await reloadEntries();
-    } catch {
+    } catch (err) {
+      setSaving(false);
+      if (err?.code === "42501") throw err;
       setStatus("error");
+      return;
     }
     setSaving(false);
   }, [reloadEntries]);
@@ -366,7 +370,6 @@ function Tab({ session }) {
           date={openDay}
           friends={friends}
           entriesForDay={entries[openDay] || {}}
-          myFriendId={myFriendId}
           onSaveEntry={saveEntry}
           onClearEntry={clearEntry}
           close={() => setOpenDay(null)}
@@ -434,19 +437,34 @@ function Calendar({ friends, entries, cursor, onPick }) {
 
 /* -------------------------- day sheet ----------------------------- */
 
-function DaySheet({ date, friends, entriesForDay, myFriendId, onSaveEntry, onClearEntry, close }) {
+const NOT_YOUR_RECORD_MESSAGE = "MUIE MA, UMBLI CU CIOARA VOPSITA";
+
+function DaySheet({ date, friends, entriesForDay, onSaveEntry, onClearEntry, close }) {
   const [editing, setEditing] = useState(null);
+  const [denied, setDenied] = useState(false);
   const d = new Date(date + "T00:00:00");
   const label = `${d.getDate()} ${MONTHS[d.getMonth()]}`;
 
   const save = async (fid, entry) => {
-    await onSaveEntry(fid, date, entry);
-    setEditing(null);
+    try {
+      await onSaveEntry(fid, date, entry);
+      setEditing(null);
+      setDenied(false);
+    } catch (err) {
+      if (err?.code === "42501") setDenied(true);
+      else throw err;
+    }
   };
 
   const clear = async (fid) => {
-    await onClearEntry(fid, date);
-    setEditing(null);
+    try {
+      await onClearEntry(fid, date);
+      setEditing(null);
+      setDenied(false);
+    } catch (err) {
+      if (err?.code === "42501") setDenied(true);
+      else throw err;
+    }
   };
 
   return (
@@ -460,11 +478,12 @@ function DaySheet({ date, friends, entriesForDay, myFriendId, onSaveEntry, onCle
           <button className="x" onClick={close} aria-label="Close">✕</button>
         </div>
 
+        {denied && <p className="denied">{NOT_YOUR_RECORD_MESSAGE}</p>}
+
         <div className="rows">
           {friends.map((f) => {
             const e = entriesForDay[f.id];
             const u = e ? unitsOf(e.drinks) : 0;
-            const mine = f.id === myFriendId;
             if (editing === f.id) {
               return (
                 <Editor
@@ -473,12 +492,12 @@ function DaySheet({ date, friends, entriesForDay, myFriendId, onSaveEntry, onCle
                   entry={e}
                   onSave={(x) => save(f.id, x)}
                   onClear={() => clear(f.id)}
-                  onCancel={() => setEditing(null)}
+                  onCancel={() => { setEditing(null); setDenied(false); }}
                 />
               );
             }
-            const rowContent = (
-              <>
+            return (
+              <button key={f.id} className="row" onClick={() => { setEditing(f.id); setDenied(false); }}>
                 <i className="chip" style={{ background: f.color }} />
                 <span className="rname">{f.name}</span>
                 <span className="rstate">
@@ -486,16 +505,7 @@ function DaySheet({ date, friends, entriesForDay, myFriendId, onSaveEntry, onCle
                   {e && u > 0 && <b>{describeDrinks(e.drinks)}</b>}
                   {e && u === 0 && <span className="dry">{e.excuse || "dry day"}</span>}
                 </span>
-              </>
-            );
-            return mine ? (
-              <button key={f.id} className="row" onClick={() => setEditing(f.id)}>
-                {rowContent}
               </button>
-            ) : (
-              <div key={f.id} className="row readonly">
-                {rowContent}
-              </div>
             );
           })}
         </div>
@@ -804,8 +814,9 @@ function Style() {
 .row{display:flex; align-items:center; gap:10px; width:100%;
   padding:13px 12px; border:1px solid var(--line); border-radius:10px; text-align:left}
 .row:hover{border-color:var(--amber)}
-.row.readonly{cursor:default; opacity:.85}
-.row.readonly:hover{border-color:var(--line)}
+.denied{margin:14px 0 0; padding:10px 12px; border:1px solid #D2603A; border-radius:8px;
+  background:rgba(210,96,58,.12); color:#D2603A; font-size:13px; font-weight:700;
+  text-align:center}
 .chip{width:11px; height:11px; border-radius:50%; flex:none; display:block}
 .rname{font-weight:600; font-size:15px; flex:none}
 .rstate{margin-left:auto; font-size:13px; color:var(--mute);
