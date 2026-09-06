@@ -2,6 +2,10 @@ import { supabase } from "./supabaseClient";
 
 const DRINK_COLUMNS = ["beer", "beer_small", "wine", "rum", "whisky", "vodka"];
 
+// RLS rejecting an UPDATE/DELETE matches zero rows instead of erroring —
+// callers check .code === "42501" the same way as a real Postgres error.
+const RLS_DENIED = { code: "42501", message: "row-level security rejected the write" };
+
 export async function fetchFriends() {
   const { data, error } = await supabase
     .from("friends")
@@ -27,11 +31,13 @@ export async function removeFriend(id) {
 }
 
 export async function updateFriendWeight(id, weightKg) {
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("friends")
     .update({ weight_kg: weightKg })
-    .eq("id", id);
+    .eq("id", id)
+    .select();
   if (error) throw error;
+  if (!data || data.length === 0) throw RLS_DENIED;
 }
 
 export async function fetchEntries(monthStart, monthEnd) {
@@ -49,18 +55,24 @@ export async function saveEntry(friendId, day, { drinks, excuse }) {
   DRINK_COLUMNS.forEach((id) => {
     row[id] = drinks?.[id] || 0;
   });
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("entries")
-    .upsert(row, { onConflict: "friend_id,day" });
+    .upsert(row, { onConflict: "friend_id,day" })
+    .select();
   if (error) throw error;
+  // Updating (not inserting) a row RLS rejects matches zero rows instead
+  // of erroring — treat that the same as a rejected write.
+  if (!data || data.length === 0) throw RLS_DENIED;
 }
 
 export async function deleteEntry(friendId, day) {
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("entries")
     .delete()
-    .match({ friend_id: friendId, day });
+    .match({ friend_id: friendId, day })
+    .select();
   if (error) throw error;
+  if (!data || data.length === 0) throw RLS_DENIED;
 }
 
 // DB row (flat drink columns) -> UI shape ({ id, drinks: {...}, excuse })
