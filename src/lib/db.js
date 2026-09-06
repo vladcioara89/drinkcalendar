@@ -1,6 +1,6 @@
 import { supabase } from "./supabaseClient";
 
-const DRINK_COLUMNS = ["beer", "beer_small", "wine", "rum", "whisky", "vodka"];
+const DRINK_COLUMNS = ["beer", "beer_small", "beer_draught", "wine", "rum", "whisky", "vodka"];
 
 // RLS rejecting an UPDATE/DELETE matches zero rows instead of erroring —
 // callers check .code === "42501" the same way as a real Postgres error.

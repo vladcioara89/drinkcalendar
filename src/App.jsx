@@ -22,6 +22,7 @@ import {
 const DRINKS = [
   { id: "beer", label: "Bere", serving: "500 ml", ml: 25 },
   { id: "beer_small", label: "Bere", serving: "300 ml", ml: 15 },
+  { id: "beer_draught", label: "Bere Draught", serving: "500 ml", ml: 25 },
   { id: "wine", label: "Vin", serving: "150 ml", ml: 18 },
   { id: "rum", label: "Rom", serving: "50 ml", ml: 20 },
   { id: "whisky", label: "Whisky", serving: "50 ml", ml: 20 },
@@ -60,7 +61,7 @@ const fmt = (u) => (u >= 10 ? Math.round(u) : Math.round(u * 10) / 10);
 
 // Romanian plurals for drink labels (2+); anything not listed here (Vin,
 // Vodcă) stays the same in plural.
-const PLURAL_LABELS = { Bere: "Beri", Rom: "Romuri", Whisky: "Whisky-uri" };
+const PLURAL_LABELS = { Bere: "Beri", "Bere Draught": "Beri Draught", Rom: "Romuri", Whisky: "Whisky-uri" };
 const pluralLabel = (label, count) => (count === 1 ? label : PLURAL_LABELS[label] || label);
 
 const describeDrinks = (drinks) =>

@@ -14,8 +14,9 @@ create table entries (
   id uuid primary key default gen_random_uuid(),
   friend_id uuid not null references friends(id) on delete cascade,
   day date not null,
-  beer int not null default 0,       -- 500 ml bottles
-  beer_small int not null default 0, -- 300 ml bottles
+  beer int not null default 0,         -- 500 ml bottles
+  beer_small int not null default 0,   -- 300 ml bottles
+  beer_draught int not null default 0, -- 500 ml draught
   wine int not null default 0,     -- 150 ml glasses
   rum int not null default 0,      -- 50 ml shots
   whisky int not null default 0,
@@ -27,7 +28,7 @@ create table entries (
 
 -- pure alcohol in ml, so beer vs shots compare fairly
 create view entry_units as
-select *, (beer*25 + beer_small*15 + wine*18 + rum*20 + whisky*20 + vodka*20) / 10.0 as units
+select *, (beer*25 + beer_small*15 + beer_draught*25 + wine*18 + rum*20 + whisky*20 + vodka*20) / 10.0 as units
 from entries;
 
 -- monthly leaderboard
