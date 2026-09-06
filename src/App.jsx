@@ -55,13 +55,18 @@ const unitsOf = (drinks) =>
 
 const fmt = (u) => (u >= 10 ? Math.round(u) : Math.round(u * 10) / 10);
 
+// Romanian plurals for drink labels (2+); anything not listed here (Vin,
+// Vodcă) stays the same in plural.
+const PLURAL_LABELS = { Bere: "Beri", Rom: "Romuri", Whisky: "Whisky-uri" };
+const pluralLabel = (label, count) => (count === 1 ? label : PLURAL_LABELS[label] || label);
+
 const describeDrinks = (drinks) =>
   DRINKS.filter((d) => drinks?.[d.id] > 0)
-    .map((d) => `${drinks[d.id]} ${d.label} ${d.serving}`)
+    .map((d) => `${drinks[d.id]} ${pluralLabel(d.label, drinks[d.id])} ${d.serving}`)
     .join(", ");
 
-// Summarize a month's aggregated per-drink counts, e.g. "12 Beer + 3 Wine".
-// Different servings of the same drink (Beer 500ml / 300ml) are combined
+// Summarize a month's aggregated per-drink counts, e.g. "12 Beri + 3 Vin".
+// Different servings of the same drink (Bere 500ml / 300ml) are combined
 // under one label since the serving size doesn't matter for this summary.
 const summarizeDrinkCounts = (counts) => {
   const byLabel = {};
@@ -71,7 +76,7 @@ const summarizeDrinkCounts = (counts) => {
   });
   const parts = Object.entries(byLabel)
     .sort((a, b) => b[1] - a[1])
-    .map(([label, count]) => `${count} ${label}`);
+    .map(([label, count]) => `${count} ${pluralLabel(label, count)}`);
   return parts.length ? parts.join(" + ") : "—";
 };
 
@@ -664,7 +669,7 @@ function Excuses({ totals }) {
 function Friends({ friends, onRemove, onUpdateWeight }) {
   return (
     <div>
-      <p className="legend">Set your KGs to calculate alcohol in blood:</p>
+      <p className="legend">Setează kilogramele pentru a calcula alcoolemia:</p>
       <ul className="flist">
         {friends.map((f) => (
           <FriendRow key={f.id} friend={f} onRemove={onRemove} onUpdateWeight={onUpdateWeight} />
@@ -843,7 +848,7 @@ function Style() {
 .exwho{font-size:13px; font-weight:600}
 .extext{font-size:15px; margin-top:2px}
 
-.tabapp input.weightinput.sm{width:52px; flex:0 0 52px; padding:6px 8px; margin-left:auto; text-align:center}
+.tabapp input.weightinput.sm{width:60px; flex:0 0 60px; padding:6px 8px; margin-left:auto; text-align:center}
 .kglabel{font-size:12px; color:var(--mute)}
 .flist{list-style:none; margin:0; padding:0}
 .flist li{display:flex; align-items:center; gap:8px; padding:13px 2px; border-bottom:1px solid var(--line); font-size:15px}
