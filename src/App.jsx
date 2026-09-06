@@ -8,6 +8,9 @@ import {
   saveEntry as dbSaveEntry,
   deleteEntry as dbDeleteEntry,
   rowsToEntriesMap,
+  fetchReactions,
+  setReaction,
+  clearReaction,
 } from "./lib/db";
 
 /* ------------------------------------------------------------------ */
@@ -125,7 +128,7 @@ export default function App() {
 
   if (!session) return <Login />;
 
-  return <Tab />;
+  return <Tab session={session} />;
 }
 
 /* ---------------------------- login -------------------------------- */
@@ -192,7 +195,7 @@ function Login() {
 
 /* --------------------------- main tab ------------------------------ */
 
-function Tab() {
+function Tab({ session }) {
   const [friends, setFriends] = useState([]);
   const [entries, setEntries] = useState({}); // { [day]: { [friendId]: {drinks, excuse} } }, scoped to cursor's month
   const [status, setStatus] = useState("loading"); // loading | ready | error
@@ -222,6 +225,11 @@ function Tab() {
     fetchFriends().then(setFriends).catch(() => setStatus("error"));
   }, []);
 
+  const myFriend = useMemo(
+    () => friends.find((f) => f.auth_user_id === session.user.id) ?? null,
+    [friends, session.user.id]
+  );
+
   useEffect(() => {
     setStatus("loading");
     reloadEntries();
@@ -243,7 +251,7 @@ function Tab() {
             const c = e.drinks?.[d.id] || 0;
             if (c) row.drinkCounts[d.id] = (row.drinkCounts[d.id] || 0) + c;
           });
-        } else { row.dry += 1; if (e.excuse) row.excuses.push({ date, text: e.excuse }); }
+        } else { row.dry += 1; if (e.excuse) row.excuses.push({ id: e.id, friendId: fid, date, text: e.excuse }); }
       });
     });
     return acc.sort((a, b) => b.units - a.units);
@@ -303,8 +311,11 @@ function Tab() {
     try {
       await dbUpdateFriendWeight(id, weightKg);
       setFriends(await fetchFriends());
-    } catch {
+    } catch (err) {
+      setSaving(false);
+      if (err?.code === "42501") throw err;
       setStatus("error");
+      return;
     }
     setSaving(false);
   }, []);
@@ -345,10 +356,11 @@ function Tab() {
           <Calendar friends={friends} entries={entries} cursor={cursor} onPick={setOpenDay} />
         )}
         {tab === "ranking" && <Ranking totals={totals} />}
-        {tab === "excuses" && <Excuses totals={totals} />}
+        {tab === "excuses" && <Excuses totals={totals} myFriendId={myFriend?.id ?? null} />}
         {tab === "friends" && (
           <Friends
             friends={friends}
+            myFriendName={myFriend?.name ?? null}
             onRemove={removeFriend}
             onUpdateWeight={updateFriendWeight}
           />
@@ -508,7 +520,7 @@ function DaySheet({ date, friends, entriesForDay, onSaveEntry, onClearEntry, clo
                 <i className="chip" style={{ background: f.color }} />
                 <span className="rname">{f.name}</span>
                 <span className="rstate">
-                  {!e && <em>neînregistrat</em>}
+                  {!e && <em>Click pentru a înregistra progresul pe ziua asta</em>}
                   {e && u > 0 && <b>{describeDrinks(e.drinks)}</b>}
                   {e && u === 0 && <span className="dry">{e.excuse || "zi fără alcool"}</span>}
                 </span>
@@ -644,31 +656,97 @@ function Ranking({ totals }) {
 
 /* --------------------------- excuses ------------------------------ */
 
-function Excuses({ totals }) {
+const REACTION_EMOJIS = ["😂", "😭", "🍺", "🤡", "🔥", "💀"];
+
+function Excuses({ totals, myFriendId }) {
   const all = totals
     .flatMap((t) => t.excuses.map((e) => ({ ...e, name: t.name, color: t.color })))
     .sort((a, b) => a.date.localeCompare(b.date));
+
+  const [reactions, setReactions] = useState({}); // entryId -> [{reactor_friend_id, emoji}]
+  const entryIdsKey = all.map((e) => e.id).join(",");
+
+  const reload = useCallback(() => {
+    const entryIds = all.map((e) => e.id).filter(Boolean);
+    if (!entryIds.length) { setReactions({}); return; }
+    fetchReactions(entryIds)
+      .then((rows) => {
+        const map = {};
+        rows.forEach((r) => {
+          (map[r.entry_id] ??= []).push(r);
+        });
+        setReactions(map);
+      })
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [entryIdsKey]);
+
+  useEffect(() => { reload(); }, [reload]);
+
+  const toggle = async (entryId, emoji) => {
+    if (!myFriendId) return;
+    const mine = (reactions[entryId] || []).find((r) => r.reactor_friend_id === myFriendId);
+    if (mine && mine.emoji === emoji) {
+      await clearReaction(entryId, myFriendId);
+    } else {
+      await setReaction(entryId, myFriendId, emoji);
+    }
+    reload();
+  };
+
   if (!all.length) return <p className="empty">Nicio zi fără alcool înregistrată încă. Motivele apar aici.</p>;
   return (
     <ul className="exlist">
-      {all.map((e, i) => (
-        <li key={i}>
-          <div className="exday">{Number(e.date.slice(8))}</div>
-          <div>
-            <div className="exwho" style={{ color: e.color }}>{e.name}</div>
-            <div className="extext">{e.text}</div>
-          </div>
-        </li>
-      ))}
+      {all.map((e) => {
+        const entryReactions = reactions[e.id] || [];
+        const counts = {};
+        entryReactions.forEach((r) => { counts[r.emoji] = (counts[r.emoji] || 0) + 1; });
+        const mine = entryReactions.find((r) => r.reactor_friend_id === myFriendId);
+        const canReact = myFriendId && e.friendId !== myFriendId;
+        return (
+          <li key={e.id}>
+            <div className="exday">{Number(e.date.slice(8))}</div>
+            <div className="exmain">
+              <div className="exwho" style={{ color: e.color }}>{e.name}</div>
+              <div className="extext">{e.text}</div>
+              {Object.keys(counts).length > 0 && (
+                <div className="exreactions">
+                  {Object.entries(counts).map(([emoji, count]) => (
+                    <span key={emoji} className={mine?.emoji === emoji ? "exreaction mine" : "exreaction"}>
+                      {emoji} {count}
+                    </span>
+                  ))}
+                </div>
+              )}
+              {canReact && (
+                <div className="expicker">
+                  {REACTION_EMOJIS.map((emoji) => (
+                    <button
+                      key={emoji}
+                      className={mine?.emoji === emoji ? "emojibtn on" : "emojibtn"}
+                      onClick={() => toggle(e.id, emoji)}
+                    >
+                      {emoji}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </li>
+        );
+      })}
     </ul>
   );
 }
 
 /* --------------------------- friends ------------------------------ */
 
-function Friends({ friends, onRemove, onUpdateWeight }) {
+function Friends({ friends, myFriendName, onRemove, onUpdateWeight }) {
   return (
     <div>
+      {myFriendName && (
+        <p className="legend">Ești conectat ca: <b style={{ color: "var(--amber)" }}>{myFriendName}</b></p>
+      )}
       <p className="legend">Setează kilogramele pentru a calcula alcoolemia:</p>
       <ul className="flist">
         {friends.map((f) => (
@@ -686,27 +764,40 @@ function Friends({ friends, onRemove, onUpdateWeight }) {
 
 function FriendRow({ friend, onRemove, onUpdateWeight }) {
   const [weight, setWeight] = useState(String(friend.weight_kg ?? 75));
+  const [denied, setDenied] = useState(false);
 
-  const commit = () => {
+  const commit = async () => {
     const w = Number(weight);
-    if (w > 0 && w !== friend.weight_kg) onUpdateWeight(friend.id, w);
+    if (!(w > 0) || w === friend.weight_kg) return;
+    try {
+      await onUpdateWeight(friend.id, w);
+      setDenied(false);
+    } catch (err) {
+      if (err?.code === "42501") {
+        setDenied(true);
+        setWeight(String(friend.weight_kg ?? 75));
+      } else throw err;
+    }
   };
 
   return (
-    <li>
-      <i className="chip" style={{ background: friend.color }} />
-      <span>{friend.name}</span>
-      <input
-        className="weightinput sm"
-        value={weight}
-        onChange={(e) => setWeight(e.target.value)}
-        onBlur={commit}
-        onKeyDown={(e) => e.key === "Enter" && e.target.blur()}
-        type="number"
-        inputMode="numeric"
-      />
-      <span className="kglabel">kg</span>
-      <button className="ghost sm" onClick={() => onRemove(friend.id)}>Elimină</button>
+    <li className="flist-row">
+      <div className="flist-main">
+        <i className="chip" style={{ background: friend.color }} />
+        <span>{friend.name}</span>
+        <input
+          className="weightinput sm"
+          value={weight}
+          onChange={(e) => setWeight(e.target.value)}
+          onBlur={commit}
+          onKeyDown={(e) => e.key === "Enter" && e.target.blur()}
+          type="number"
+          inputMode="numeric"
+        />
+        <span className="kglabel">kg</span>
+        <button className="ghost sm" onClick={() => onRemove(friend.id)}>Elimină</button>
+      </div>
+      {denied && <p className="denied">{NOT_YOUR_RECORD_MESSAGE}</p>}
     </li>
   );
 }
@@ -845,13 +936,23 @@ function Style() {
 .exlist{list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:2px}
 .exlist li{display:flex; gap:14px; padding:12px 2px; border-bottom:1px solid var(--line)}
 .exday{font-family:Anton, Impact, sans-serif; font-size:20px; color:var(--mute); min-width:28px}
+.exmain{flex:1; min-width:0}
 .exwho{font-size:13px; font-weight:600}
 .extext{font-size:15px; margin-top:2px}
+.exreactions{display:flex; flex-wrap:wrap; gap:5px; margin-top:8px}
+.exreaction{font-size:12px; padding:3px 7px; border-radius:999px; background:var(--panel); border:1px solid var(--line)}
+.exreaction.mine{border-color:var(--amber)}
+.expicker{display:flex; flex-wrap:wrap; gap:4px; margin-top:8px}
+.emojibtn{font-size:15px; padding:3px 6px; border-radius:8px; border:1px solid transparent; opacity:.55}
+.emojibtn:hover{opacity:1; border-color:var(--line)}
+.emojibtn.on{opacity:1; background:var(--panel); border-color:var(--amber)}
 
 .tabapp input.weightinput.sm{width:60px; flex:0 0 60px; padding:6px 8px; margin-left:auto; text-align:center}
 .kglabel{font-size:12px; color:var(--mute)}
 .flist{list-style:none; margin:0; padding:0}
-.flist li{display:flex; align-items:center; gap:8px; padding:13px 2px; border-bottom:1px solid var(--line); font-size:15px}
+.flist-row{padding:13px 2px; border-bottom:1px solid var(--line); font-size:15px}
+.flist-main{display:flex; align-items:center; gap:8px}
+.flist-row .denied{margin:10px 0 0}
 
 @media (prefers-reduced-motion: reduce){ .tabapp *{transition:none !important} }
 `}</style>

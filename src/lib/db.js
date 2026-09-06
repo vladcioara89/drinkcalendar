@@ -63,13 +63,13 @@ export async function deleteEntry(friendId, day) {
   if (error) throw error;
 }
 
-// DB row (flat drink columns) -> UI shape ({ drinks: {...}, excuse })
+// DB row (flat drink columns) -> UI shape ({ id, drinks: {...}, excuse })
 export function rowToEntry(row) {
   const drinks = {};
   DRINK_COLUMNS.forEach((id) => {
     if (row[id]) drinks[id] = row[id];
   });
-  return { drinks, excuse: row.excuse };
+  return { id: row.id, drinks, excuse: row.excuse };
 }
 
 // [{friend_id, day, ...}] -> { [day]: { [friend_id]: {drinks, excuse} } }
@@ -80,4 +80,33 @@ export function rowsToEntriesMap(rows) {
     map[row.day][row.friend_id] = rowToEntry(row);
   });
   return map;
+}
+
+export async function fetchReactions(entryIds) {
+  if (!entryIds.length) return [];
+  const { data, error } = await supabase
+    .from("excuse_reactions")
+    .select("*")
+    .in("entry_id", entryIds);
+  if (error) throw error;
+  return data;
+}
+
+// One reaction per (entry, reactor) — picking a new emoji replaces the old one.
+export async function setReaction(entryId, reactorFriendId, emoji) {
+  const { error } = await supabase
+    .from("excuse_reactions")
+    .upsert(
+      { entry_id: entryId, reactor_friend_id: reactorFriendId, emoji },
+      { onConflict: "entry_id,reactor_friend_id" }
+    );
+  if (error) throw error;
+}
+
+export async function clearReaction(entryId, reactorFriendId) {
+  const { error } = await supabase
+    .from("excuse_reactions")
+    .delete()
+    .match({ entry_id: entryId, reactor_friend_id: reactorFriendId });
+  if (error) throw error;
 }

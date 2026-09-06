@@ -49,5 +49,29 @@ create policy "signed in read" on entries for select to authenticated using (tru
 create policy "own write" on entries for all to authenticated
   using (friend_id in (select id from friends where auth_user_id = auth.uid()))
   with check (friend_id in (select id from friends where auth_user_id = auth.uid()));
-create policy "signed in read f"  on friends for select to authenticated using (true);
-create policy "signed in write f" on friends for all    to authenticated using (true) with check (true);
+
+create policy "signed in read f" on friends for select to authenticated using (true);
+create policy "insert friends" on friends for insert to authenticated with check (true);
+create policy "delete friends" on friends for delete to authenticated using (true);
+create policy "update own friend row" on friends for update to authenticated
+  using (auth_user_id = auth.uid())
+  with check (auth_user_id = auth.uid());
+
+-- WhatsApp-style emoji reactions on excuses. One reaction per (entry,
+-- reactor) — picking a new emoji replaces your old one.
+create table excuse_reactions (
+  id uuid primary key default gen_random_uuid(),
+  entry_id uuid not null references entries(id) on delete cascade,
+  reactor_friend_id uuid not null references friends(id) on delete cascade,
+  emoji text not null,
+  created_at timestamptz default now(),
+  unique (entry_id, reactor_friend_id)
+);
+
+alter table excuse_reactions enable row level security;
+
+create policy "signed in read reactions" on excuse_reactions
+  for select to authenticated using (true);
+create policy "own reactions" on excuse_reactions for all to authenticated
+  using (reactor_friend_id in (select id from friends where auth_user_id = auth.uid()))
+  with check (reactor_friend_id in (select id from friends where auth_user_id = auth.uid()));
