@@ -66,6 +66,21 @@ const describeDrinks = (drinks) =>
     .map((d) => `${drinks[d.id]} ${d.label} ${d.serving}`)
     .join(", ");
 
+// Summarize a month's aggregated per-drink counts, e.g. "12 Beer + 3 Wine".
+// Different servings of the same drink (Beer 500ml / 300ml) are combined
+// under one label since the serving size doesn't matter for this summary.
+const summarizeDrinkCounts = (counts) => {
+  const byLabel = {};
+  DRINKS.forEach((d) => {
+    const c = counts?.[d.id] || 0;
+    if (c) byLabel[d.label] = (byLabel[d.label] || 0) + c;
+  });
+  const parts = Object.entries(byLabel)
+    .sort((a, b) => b[1] - a[1])
+    .map(([label, count]) => `${count} ${label}`);
+  return parts.length ? parts.join(" + ") : "—";
+};
+
 // Rough Widmark-formula estimate of peak BAC if the day's drinks all hit at
 // once — not time-adjusted (we only log daily totals, not when each drink
 // happened), so this is a ceiling, not a real reading. Not for deciding
@@ -215,7 +230,7 @@ function Tab() {
 
   const totals = useMemo(() => {
     const acc = friends.map((f) => ({
-      ...f, units: 0, days: 0, dry: 0, excuses: [],
+      ...f, units: 0, days: 0, dry: 0, excuses: [], drinkCounts: {},
     }));
     const byId = Object.fromEntries(acc.map((a) => [a.id, a]));
     Object.entries(entries).forEach(([date, perFriend]) => {
@@ -223,8 +238,13 @@ function Tab() {
         const row = byId[fid];
         if (!row) return;
         const u = unitsOf(e.drinks);
-        if (u > 0) { row.units += u; row.days += 1; }
-        else { row.dry += 1; if (e.excuse) row.excuses.push({ date, text: e.excuse }); }
+        if (u > 0) {
+          row.units += u; row.days += 1;
+          DRINKS.forEach((d) => {
+            const c = e.drinks?.[d.id] || 0;
+            if (c) row.drinkCounts[d.id] = (row.drinkCounts[d.id] || 0) + c;
+          });
+        } else { row.dry += 1; if (e.excuse) row.excuses.push({ date, text: e.excuse }); }
       });
     });
     return acc.sort((a, b) => b.units - a.units);
@@ -620,7 +640,7 @@ function Ranking({ totals }) {
           <div className="bmain">
             <div className="bname">
               <span>{t.name}</span>
-              <b>{fmt(t.units)}</b>
+              <b>{summarizeDrinkCounts(t.drinkCounts)}</b>
             </div>
             <div className="btrack">
               <div style={{ width: `${(t.units / max) * 100}%`, background: t.color }} />
@@ -690,16 +710,12 @@ function Friends({ friends, onAdd, onRemove, onUpdateWeight }) {
         />
         <button className="primary" onClick={add}>Add</button>
       </div>
+      <p className="legend">Set your KGs to calculate alcohol in blood:</p>
       <ul className="flist">
         {friends.map((f) => (
           <FriendRow key={f.id} friend={f} onRemove={onRemove} onUpdateWeight={onUpdateWeight} />
         ))}
       </ul>
-      <p className="legend">
-        Everyone signed in sees and edits the same list. One unit = 10 ml of pure
-        alcohol, so a beer counts as 2.5 and a shot as 2. Weight is used only for
-        the rough BAC estimate shown when logging a day.
-      </p>
       <p className="legend">
         <button className="ghost sm" style={{ marginLeft: 0 }} onClick={() => supabase.auth.signOut()}>
           Sign out
@@ -859,8 +875,10 @@ function Style() {
 .brank{font-family:Anton, Impact, sans-serif; font-size:26px; color:var(--line); min-width:26px}
 .board li:first-child .brank{color:var(--amber)}
 .bmain{flex:1}
-.bname{display:flex; justify-content:space-between; font-size:15px; font-weight:600}
-.bname b{font-family:Anton, Impact, sans-serif; font-weight:400; font-size:20px}
+.bname{display:flex; justify-content:space-between; gap:10px; font-size:15px; font-weight:600}
+.bname span{flex:none}
+.bname b{color:var(--amber); font-weight:800; font-size:14px; text-align:right;
+  flex:1; min-width:0; white-space:normal}
 .btrack{height:9px; background:var(--panel); border-radius:5px; margin:6px 0 5px; overflow:hidden}
 .btrack div{height:100%; border-radius:5px}
 .bmeta{font-size:12px; color:var(--mute)}
@@ -873,8 +891,8 @@ function Style() {
 
 .addrow{display:flex; gap:8px; margin-bottom:18px}
 .addrow .primary{margin-left:0; white-space:nowrap}
-.weightinput{width:64px; flex:none; text-align:center}
-.weightinput.sm{width:52px; padding:6px 8px; margin-left:auto}
+.tabapp input.weightinput{width:64px; flex:0 0 64px; text-align:center}
+.tabapp input.weightinput.sm{width:52px; flex:0 0 52px; padding:6px 8px; margin-left:auto}
 .kglabel{font-size:12px; color:var(--mute)}
 .flist{list-style:none; margin:0; padding:0}
 .flist li{display:flex; align-items:center; gap:8px; padding:13px 2px; border-bottom:1px solid var(--line); font-size:15px}
