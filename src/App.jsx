@@ -60,6 +60,11 @@ const unitsOf = (drinks) =>
 
 const fmt = (u) => (u >= 10 ? Math.round(u) : Math.round(u * 10) / 10);
 
+const describeDrinks = (drinks) =>
+  DRINKS.filter((d) => drinks?.[d.id] > 0)
+    .map((d) => `${drinks[d.id]} ${d.label} ${d.serving}`)
+    .join(", ");
+
 /* ---------------------------- app --------------------------------- */
 
 export default function App() {
@@ -116,7 +121,7 @@ function Login() {
       password: p,
     });
     setBusy(false);
-    if (error) setError(`${error.message} (login email: ${SHARED_LOGIN_EMAIL || "MISSING"})`);
+    if (error) setError("Wrong PIN.");
   };
 
   return (
@@ -427,7 +432,7 @@ function DaySheet({ date, friends, entriesForDay, onSaveEntry, onClearEntry, clo
                 <span className="rname">{f.name}</span>
                 <span className="rstate">
                   {!e && <em>not logged</em>}
-                  {e && u > 0 && <b>{fmt(u)} units</b>}
+                  {e && u > 0 && <b>{describeDrinks(e.drinks)}</b>}
                   {e && u === 0 && <span className="dry">{e.excuse || "dry day"}</span>}
                 </span>
               </button>
@@ -698,8 +703,9 @@ function Style() {
   padding:13px 12px; border:1px solid var(--line); border-radius:10px; text-align:left}
 .row:hover{border-color:var(--amber)}
 .chip{width:11px; height:11px; border-radius:50%; flex:none; display:block}
-.rname{font-weight:600; font-size:15px}
-.rstate{margin-left:auto; font-size:13px; color:var(--mute)}
+.rname{font-weight:600; font-size:15px; flex:none}
+.rstate{margin-left:auto; font-size:13px; color:var(--mute);
+  min-width:0; flex:1; text-align:right; white-space:normal}
 .rstate b{color:var(--amber); font-weight:800}
 .dry{color:var(--sage)}
 .rstate em{font-style:normal; opacity:.7}
