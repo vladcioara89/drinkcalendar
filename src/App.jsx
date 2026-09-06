@@ -18,6 +18,7 @@ import {
 
 const DRINKS = [
   { id: "beer", label: "Beer", serving: "500 ml", ml: 25 },
+  { id: "beer_small", label: "Beer", serving: "300 ml", ml: 15 },
   { id: "wine", label: "Wine", serving: "150 ml", ml: 18 },
   { id: "rum", label: "Rum", serving: "50 ml", ml: 20 },
   { id: "whisky", label: "Whisky", serving: "50 ml", ml: 20 },

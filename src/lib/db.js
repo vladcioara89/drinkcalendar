@@ -1,6 +1,6 @@
 import { supabase } from "./supabaseClient";
 
-const DRINK_COLUMNS = ["beer", "wine", "rum", "whisky", "vodka"];
+const DRINK_COLUMNS = ["beer", "beer_small", "wine", "rum", "whisky", "vodka"];
 
 export async function fetchFriends() {
   const { data, error } = await supabase
