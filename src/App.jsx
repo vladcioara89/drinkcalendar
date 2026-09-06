@@ -238,7 +238,8 @@ function Tab({ session }) {
 
   const totals = useMemo(() => {
     const acc = friends.map((f) => ({
-      ...f, units: 0, days: 0, dry: 0, excuses: [], drinkCounts: {}, totalDrinks: 0, maxDayUnits: 0,
+      ...f, units: 0, days: 0, dry: 0, excuses: [], drinkCounts: {}, totalDrinks: 0,
+      maxDayUnits: 0, maxDayDate: null,
     }));
     const byId = Object.fromEntries(acc.map((a) => [a.id, a]));
     Object.entries(entries).forEach(([date, perFriend]) => {
@@ -248,7 +249,7 @@ function Tab({ session }) {
         const u = unitsOf(e.drinks);
         if (u > 0) {
           row.units += u; row.days += 1;
-          row.maxDayUnits = Math.max(row.maxDayUnits, u);
+          if (u > row.maxDayUnits) { row.maxDayUnits = u; row.maxDayDate = date; }
           DRINKS.forEach((d) => {
             const c = e.drinks?.[d.id] || 0;
             if (c) { row.drinkCounts[d.id] = (row.drinkCounts[d.id] || 0) + c; row.totalDrinks += c; }
@@ -654,10 +655,10 @@ function Ranking({ totals }) {
   const any = totals.some((t) => t.units > 0);
   if (!any) return <p className="empty">Nicio băutură înregistrată luna aceasta. Clasamentul se umple pe măsură ce lumea își notează zilele.</p>;
 
-  const byBAC = totals
+  const peak = totals
     .filter((t) => t.maxDayUnits > 0)
     .map((t) => ({ ...t, bac: estimateBAC(t.maxDayUnits, t.weight_kg) }))
-    .sort((a, b) => b.bac - a.bac);
+    .sort((a, b) => b.bac - a.bac)[0];
 
   return (
     <>
@@ -681,22 +682,16 @@ function Ranking({ totals }) {
         ))}
       </ol>
 
-      {byBAC.length > 0 && (
+      {peak && (
         <>
-          <h3 className="boardhead">Cea mai mare alcoolemie luna aceasta</h3>
-          <ol className="board">
-            {byBAC.map((t, i) => (
-              <li key={t.id}>
-                <div className="brank">{i + 1}</div>
-                <div className="bmain">
-                  <div className="bname">
-                    <span>{t.name}</span>
-                    <b>≈{t.bac.toFixed(3)}%</b>
-                  </div>
-                </div>
-              </li>
-            ))}
-          </ol>
+          <h3 className="boardhead">Cea mai mare alcoolemie într-o zi luna aceasta</h3>
+          <div className="peakcard">
+            <span style={{ color: peak.color }}>{peak.name}</span>
+            <b>≈{peak.bac.toFixed(3)}%</b>
+            <div className="peakdate">
+              {Number(peak.maxDayDate.slice(8))} {MONTHS[Number(peak.maxDayDate.slice(5, 7)) - 1]}
+            </div>
+          </div>
         </>
       )}
     </>
@@ -1025,6 +1020,11 @@ function Style() {
 .boardhead{font-family:Anton, Impact, sans-serif; font-weight:400; font-size:16px;
   text-transform:uppercase; letter-spacing:.02em; color:var(--amber);
   margin:120px 0 16px; padding-top:28px; border-top:1px solid var(--line)}
+.peakcard{display:flex; align-items:baseline; flex-wrap:wrap; gap:8px 12px;
+  padding:16px; border:1px solid var(--line); border-radius:10px; background:var(--panel)}
+.peakcard span{font-weight:700; font-size:16px}
+.peakcard b{color:var(--amber); font-size:22px; font-family:Anton, Impact, sans-serif; font-weight:400}
+.peakdate{width:100%; font-size:12px; color:var(--mute)}
 .board{list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:16px}
 .board li{display:flex; gap:12px; align-items:flex-start}
 .brank{font-family:Anton, Impact, sans-serif; font-size:26px; color:var(--line); min-width:26px}
