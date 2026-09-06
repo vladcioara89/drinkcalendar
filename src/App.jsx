@@ -181,7 +181,8 @@ function Login() {
           onKeyDown={(e) => e.key === "Enter" && submit()}
           placeholder="PIN"
           type="password"
-          inputMode="numeric"
+          autoCapitalize="none"
+          autoCorrect="off"
           style={{ marginTop: 10 }}
         />
         <button className="primary" style={{ marginTop: 12 }} onClick={submit} disabled={busy}>
