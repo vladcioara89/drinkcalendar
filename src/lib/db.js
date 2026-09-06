@@ -72,7 +72,17 @@ export async function deleteEntry(friendId, day) {
     .match({ friend_id: friendId, day })
     .select();
   if (error) throw error;
-  if (!data || data.length === 0) throw RLS_DENIED;
+  if (data && data.length > 0) return;
+  // Zero rows affected is ambiguous: it means either the row belongs to
+  // someone else (RLS filtered it out) or it's already gone (nothing to
+  // delete — not an error). The read policy is open to everyone, so a
+  // plain select disambiguates: if it's still visible, it was denied.
+  const { data: existing } = await supabase
+    .from("entries")
+    .select("id")
+    .match({ friend_id: friendId, day })
+    .maybeSingle();
+  if (existing) throw RLS_DENIED;
 }
 
 // DB row (flat drink columns) -> UI shape ({ id, drinks: {...}, excuse })

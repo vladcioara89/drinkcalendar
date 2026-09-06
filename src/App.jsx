@@ -531,15 +531,22 @@ function DaySheet({ date, friends, entriesForDay, onSaveEntry, onClearEntry, clo
               );
             }
             return (
-              <button key={f.id} className="row" onClick={() => { setEditing(f.id); setDenied(false); }}>
-                <i className="chip" style={{ background: f.color }} />
-                <span className="rname">{f.name}</span>
-                <span className="rstate">
-                  {!e && <em>Click pentru a înregistra progresul pe ziua asta</em>}
-                  {e && u > 0 && <b>{describeDrinks(e.drinks)}</b>}
-                  {e && u === 0 && <span className="dry">{e.excuse || "zi fără alcool"}</span>}
-                </span>
-              </button>
+              <div key={f.id} className="row">
+                <button className="rowmain" onClick={() => { setEditing(f.id); setDenied(false); }}>
+                  <i className="chip" style={{ background: f.color }} />
+                  <span className="rname">{f.name}</span>
+                  <span className="rstate">
+                    {!e && <em>Click pentru a înregistra progresul pe ziua asta</em>}
+                    {e && u > 0 && <b>{describeDrinks(e.drinks)}</b>}
+                    {e && u === 0 && <span className="dry">{e.excuse || "zi fără alcool"}</span>}
+                  </span>
+                </button>
+                {e && (
+                  <button className="rowdel" onClick={() => clear(f.id)} aria-label={`Șterge înregistrarea lui ${f.name}`}>
+                    <TrashIcon />
+                  </button>
+                )}
+              </div>
             );
           })}
         </div>
@@ -969,9 +976,12 @@ function Style() {
 .x{font-size:18px; color:var(--mute)}
 
 .rows{margin-top:16px; display:flex; flex-direction:column; gap:8px}
-.row{display:flex; align-items:center; gap:10px; width:100%;
-  padding:13px 12px; border:1px solid var(--line); border-radius:10px; text-align:left}
+.row{display:flex; align-items:center; gap:6px; width:100%;
+  padding:13px 12px; border:1px solid var(--line); border-radius:10px}
 .row:hover{border-color:var(--amber)}
+.rowmain{display:flex; align-items:center; gap:10px; flex:1; min-width:0; text-align:left}
+.rowdel{color:var(--mute); display:inline-flex; padding:4px; flex:none}
+.rowdel:hover{color:#D2603A}
 .denied{margin:14px 0 0; padding:10px 12px; border:1px solid #D2603A; border-radius:8px;
   background:rgba(210,96,58,.12); color:#D2603A; font-size:13px; font-weight:700;
   text-align:center}
