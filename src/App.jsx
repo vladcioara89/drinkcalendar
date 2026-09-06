@@ -988,7 +988,7 @@ function Style() {
 
 .boardhead{font-family:Anton, Impact, sans-serif; font-weight:400; font-size:16px;
   text-transform:uppercase; letter-spacing:.02em; color:var(--amber);
-  margin:56px 0 16px; padding-top:28px; border-top:1px solid var(--line)}
+  margin:120px 0 16px; padding-top:28px; border-top:1px solid var(--line)}
 .board{list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:16px}
 .board li{display:flex; gap:12px; align-items:flex-start}
 .brank{font-family:Anton, Impact, sans-serif; font-size:26px; color:var(--line); min-width:26px}
