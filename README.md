@@ -17,9 +17,8 @@ Supabase — no local state left. What's here:
   scoped to the visible month) plus the row ↔ UI-shape converters.
 - [src/App.jsx](src/App.jsx) — the prototype component from
   [DrinkTab.jsx](DrinkTab.jsx), wired to `db.js` instead of `window.storage`, gated
-  behind a shared group PIN (the schema's RLS policies require `authenticated`, so
-  the app can't work without a session — see "Group PIN, not per-person login"
-  below for how that works without email signup). `DrinkTab.jsx` is left at the
+  behind an individual PIN per person (see "Individual PINs" below) — each person
+  can view everyone's log but only edit their own. `DrinkTab.jsx` is left at the
   repo root untouched as the original reference.
 
 **Not run yet**: this environment has no Node/npm on PATH, so dependencies were never
@@ -52,9 +51,9 @@ want a guarantee, add a GitHub Action on a cron that pings the project every 3 d
 1. `npm install` in this folder.
 2. Create a free Supabase project, run the SQL below in the SQL editor.
 3. Put the project URL and anon key in `.env` as `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY`
-   (copy `.env.example`), and set up the shared login (see "Group PIN, not
-   per-person login" below) and its `VITE_TAB_LOGIN_EMAIL`.
-4. `npm run dev`, sign in with your group's PIN.
+   (copy `.env.example`), and set up each person's login (see "Individual PINs"
+   below).
+4. `npm run dev`, sign in with your name and PIN.
 5. Push to GitHub, connect the repo in Cloudflare Pages. Build command `npm run build`,
    output directory `dist`.
 6. Send your friends the URL. On iPhone: Share → Add to Home Screen. On Android the
@@ -104,38 +103,48 @@ from entry_units
 group by 1, 2;
 ```
 
-Enable RLS and add a policy so only signed-in users can read and write:
+Enable RLS: anyone signed in can read everything, but can only write entries that
+belong to their own linked friend row (see "Individual PINs" below):
 
 ```sql
 alter table friends enable row level security;
 alter table entries enable row level security;
 
-create policy "signed in read"  on entries for select to authenticated using (true);
-create policy "signed in write" on entries for all    to authenticated using (true) with check (true);
+create policy "signed in read" on entries for select to authenticated using (true);
+create policy "own write" on entries for all to authenticated
+  using (friend_id in (select id from friends where auth_user_id = auth.uid()))
+  with check (friend_id in (select id from friends where auth_user_id = auth.uid()));
 create policy "signed in read f"  on friends for select to authenticated using (true);
 create policy "signed in write f" on friends for all    to authenticated using (true) with check (true);
 ```
 
-## Group PIN, not per-person login
+## Individual PINs
 
 The app is public on the internet, and the RLS policies above require an
 `authenticated` Supabase session — without some gate, anyone who finds the URL
-could read and edit everyone's log. Rather than per-person email accounts, everyone
-in the group shares **one Supabase auth user**, and the PIN people type into the
-app is that account's password.
+could read and edit everyone's log. Each person in the group has their own PIN, and
+can only log/edit their own row (enforced by the `own write` RLS policy above, not
+just hidden in the UI) — everyone can still see everyone's calendar, ranking, and
+excuses.
 
-Set it up once:
+The login screen asks for a name and PIN. The PIN is a dedicated Supabase auth
+user's password; the login email is derived from the name
+(`"CSNN"` → `csnn@thetab.local`) so there's no per-person env var to manage.
+
+Set up each person once:
 
 1. Supabase dashboard → Authentication → Users → **Add user** → **Create new user**.
-2. Email can be anything valid-looking, e.g. `group@thetab.local` — it's never
-   actually emailed. Password is the PIN your group will use. Check
-   **Auto Confirm User**.
-3. Set `VITE_TAB_LOGIN_EMAIL` (in `.env` locally, and as a Cloudflare Pages build
-   variable) to whatever email you used in step 2.
+   Email is `<lowercase-name>@thetab.local` (matching exactly how their name is
+   typed in the app, lowercased, spaces/punctuation replaced with `-`) — it's never
+   actually emailed. Password is their PIN. Check **Auto Confirm User**.
+2. Run [supabase/migrations/003_per_friend_auth.sql](supabase/migrations/003_per_friend_auth.sql)
+   once (adds `friends.auth_user_id` and the restricted write policy), then run the
+   `update friends set auth_user_id = ...` line at the bottom of that file for each
+   person you created, matching their email to their friend row's name.
 
-To change the PIN later, edit that same user's password in Authentication → Users.
-There's no per-person audit trail this way — everyone edits as the same account —
-which is fine for a small group that trusts each other.
+To change someone's PIN later, edit that auth user's password in Authentication →
+Users — no app changes needed. A friend row with no linked `auth_user_id` can be
+viewed by everyone but can't be edited by anyone (no login maps to it).
 
 ## Estimated BAC
 

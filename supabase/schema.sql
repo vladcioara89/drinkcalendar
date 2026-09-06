@@ -6,6 +6,7 @@ create table friends (
   name text not null,
   color text not null default '#E8A33D',
   weight_kg numeric not null default 75, -- used for the rough BAC estimate
+  auth_user_id uuid unique references auth.users(id), -- links to their login, see README
   created_at timestamptz default now()
 );
 
@@ -39,11 +40,14 @@ select date_trunc('month', day) as month,
 from entry_units
 group by 1, 2;
 
--- RLS: only signed-in users (magic-link auth) can read/write
+-- RLS: any signed-in person can read everything (shared calendar/ranking),
+-- but can only write entries that belong to their own linked friend row.
 alter table friends enable row level security;
 alter table entries enable row level security;
 
-create policy "signed in read"  on entries for select to authenticated using (true);
-create policy "signed in write" on entries for all    to authenticated using (true) with check (true);
+create policy "signed in read" on entries for select to authenticated using (true);
+create policy "own write" on entries for all to authenticated
+  using (friend_id in (select id from friends where auth_user_id = auth.uid()))
+  with check (friend_id in (select id from friends where auth_user_id = auth.uid()));
 create policy "signed in read f"  on friends for select to authenticated using (true);
 create policy "signed in write f" on friends for all    to authenticated using (true) with check (true);

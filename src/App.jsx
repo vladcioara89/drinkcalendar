@@ -111,32 +111,38 @@ export default function App() {
 
   if (!session) return <Login />;
 
-  return <Tab />;
+  return <Tab session={session} />;
 }
 
 /* ---------------------------- login -------------------------------- */
 
-// Everyone in the group signs into the same Supabase auth user; the "PIN"
-// is that account's password. Set VITE_TAB_LOGIN_EMAIL to whatever email
-// you used when creating that one shared user in Supabase.
-const SHARED_LOGIN_EMAIL = import.meta.env.VITE_TAB_LOGIN_EMAIL;
+// Each person has their own Supabase auth user; the PIN is that account's
+// password, and the login email is derived from their name
+// ("CSNN" -> "csnn@thetab.local"). An admin creates that auth user and
+// links it to the friend row's auth_user_id — see README.md.
+const slugifyName = (name) =>
+  name.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+
+const loginEmailFor = (name) => `${slugifyName(name)}@thetab.local`;
 
 function Login() {
+  const [name, setName] = useState("");
   const [pin, setPin] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
   const submit = async () => {
+    const n = name.trim();
     const p = pin.trim();
-    if (!p || busy) return;
+    if (!n || !p || busy) return;
     setBusy(true);
     setError("");
     const { error } = await supabase.auth.signInWithPassword({
-      email: SHARED_LOGIN_EMAIL,
+      email: loginEmailFor(n),
       password: p,
     });
     setBusy(false);
-    if (error) setError("Wrong PIN.");
+    if (error) setError("Wrong name or PIN.");
   };
 
   return (
@@ -144,7 +150,14 @@ function Login() {
       <Style />
       <div className="empty" style={{ padding: "72px 24px", textAlign: "left" }}>
         <h1 className="month" style={{ fontSize: 32, marginBottom: 18 }}>THE TAB</h1>
-        <p style={{ marginBottom: 14 }}>Enter the group PIN to see the tab.</p>
+        <p style={{ marginBottom: 14 }}>Enter your name and PIN to see the tab.</p>
+        <input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && submit()}
+          placeholder="Your name"
+          autoFocus
+        />
         <input
           value={pin}
           onChange={(e) => setPin(e.target.value)}
@@ -152,7 +165,7 @@ function Login() {
           placeholder="PIN"
           type="password"
           inputMode="numeric"
-          autoFocus
+          style={{ marginTop: 10 }}
         />
         <button className="primary" style={{ marginTop: 12 }} onClick={submit} disabled={busy}>
           {busy ? "Checking…" : "Enter"}
@@ -165,7 +178,7 @@ function Login() {
 
 /* --------------------------- main tab ------------------------------ */
 
-function Tab() {
+function Tab({ session }) {
   const [friends, setFriends] = useState([]);
   const [entries, setEntries] = useState({}); // { [day]: { [friendId]: {drinks, excuse} } }, scoped to cursor's month
   const [status, setStatus] = useState("loading"); // loading | ready | error
@@ -194,6 +207,11 @@ function Tab() {
   useEffect(() => {
     fetchFriends().then(setFriends).catch(() => setStatus("error"));
   }, []);
+
+  const myFriendId = useMemo(
+    () => friends.find((f) => f.auth_user_id === session.user.id)?.id ?? null,
+    [friends, session.user.id]
+  );
 
   useEffect(() => {
     setStatus("loading");
@@ -348,6 +366,7 @@ function Tab() {
           date={openDay}
           friends={friends}
           entriesForDay={entries[openDay] || {}}
+          myFriendId={myFriendId}
           onSaveEntry={saveEntry}
           onClearEntry={clearEntry}
           close={() => setOpenDay(null)}
@@ -415,7 +434,7 @@ function Calendar({ friends, entries, cursor, onPick }) {
 
 /* -------------------------- day sheet ----------------------------- */
 
-function DaySheet({ date, friends, entriesForDay, onSaveEntry, onClearEntry, close }) {
+function DaySheet({ date, friends, entriesForDay, myFriendId, onSaveEntry, onClearEntry, close }) {
   const [editing, setEditing] = useState(null);
   const d = new Date(date + "T00:00:00");
   const label = `${d.getDate()} ${MONTHS[d.getMonth()]}`;
@@ -445,6 +464,7 @@ function DaySheet({ date, friends, entriesForDay, onSaveEntry, onClearEntry, clo
           {friends.map((f) => {
             const e = entriesForDay[f.id];
             const u = e ? unitsOf(e.drinks) : 0;
+            const mine = f.id === myFriendId;
             if (editing === f.id) {
               return (
                 <Editor
@@ -457,8 +477,8 @@ function DaySheet({ date, friends, entriesForDay, onSaveEntry, onClearEntry, clo
                 />
               );
             }
-            return (
-              <button key={f.id} className="row" onClick={() => setEditing(f.id)}>
+            const rowContent = (
+              <>
                 <i className="chip" style={{ background: f.color }} />
                 <span className="rname">{f.name}</span>
                 <span className="rstate">
@@ -466,7 +486,16 @@ function DaySheet({ date, friends, entriesForDay, onSaveEntry, onClearEntry, clo
                   {e && u > 0 && <b>{describeDrinks(e.drinks)}</b>}
                   {e && u === 0 && <span className="dry">{e.excuse || "dry day"}</span>}
                 </span>
+              </>
+            );
+            return mine ? (
+              <button key={f.id} className="row" onClick={() => setEditing(f.id)}>
+                {rowContent}
               </button>
+            ) : (
+              <div key={f.id} className="row readonly">
+                {rowContent}
+              </div>
             );
           })}
         </div>
@@ -519,7 +548,7 @@ function Editor({ friend, entry, onSave, onClear, onCancel }) {
             </div>
           ))}
           <div className="totline">
-            ≈{estimateBAC(total, friend.weight_kg).toFixed(3)}% estimated peak BAC
+            ≈{estimateBAC(total, friend.weight_kg).toFixed(3)}% estimated alcoholaemia
             <small className="bacnote">
               Rough estimate assuming it all hit at once — not a real reading, not for
               deciding whether to drive.
@@ -775,6 +804,8 @@ function Style() {
 .row{display:flex; align-items:center; gap:10px; width:100%;
   padding:13px 12px; border:1px solid var(--line); border-radius:10px; text-align:left}
 .row:hover{border-color:var(--amber)}
+.row.readonly{cursor:default; opacity:.85}
+.row.readonly:hover{border-color:var(--line)}
 .chip{width:11px; height:11px; border-radius:50%; flex:none; display:block}
 .rname{font-weight:600; font-size:15px; flex:none}
 .rstate{margin-left:auto; font-size:13px; color:var(--mute);
