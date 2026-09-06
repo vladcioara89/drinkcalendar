@@ -4,6 +4,7 @@ import {
   fetchFriends,
   addFriend as dbAddFriend,
   removeFriend as dbRemoveFriend,
+  updateFriendWeight as dbUpdateFriendWeight,
   fetchEntries,
   saveEntry as dbSaveEntry,
   deleteEntry as dbDeleteEntry,
@@ -64,6 +65,20 @@ const describeDrinks = (drinks) =>
   DRINKS.filter((d) => drinks?.[d.id] > 0)
     .map((d) => `${drinks[d.id]} ${d.label} ${d.serving}`)
     .join(", ");
+
+// Rough Widmark-formula estimate of peak BAC if the day's drinks all hit at
+// once — not time-adjusted (we only log daily totals, not when each drink
+// happened), so this is a ceiling, not a real reading. Not for deciding
+// whether it's safe to drive.
+const ETHANOL_DENSITY_G_ML = 0.789;
+const WIDMARK_R = 0.68; // average distribution ratio across sexes
+
+function estimateBAC(units, weightKg) {
+  const w = weightKg > 0 ? weightKg : 75;
+  const gramsAlcohol = units * 10 * ETHANOL_DENSITY_G_ML; // units = (ml pure alcohol) / 10
+  const bacPermille = gramsAlcohol / (WIDMARK_R * w);
+  return bacPermille / 10; // as a percentage, e.g. 0.08
+}
 
 /* ---------------------------- app --------------------------------- */
 
@@ -230,10 +245,10 @@ function Tab() {
     setSaving(false);
   }, [reloadEntries]);
 
-  const addFriend = useCallback(async (name) => {
+  const addFriend = useCallback(async (name, weightKg) => {
     setSaving(true);
     try {
-      await dbAddFriend(name, PALETTE[friends.length % PALETTE.length]);
+      await dbAddFriend(name, PALETTE[friends.length % PALETTE.length], weightKg);
       setFriends(await fetchFriends());
     } catch {
       setStatus("error");
@@ -252,6 +267,17 @@ function Tab() {
     }
     setSaving(false);
   }, [reloadEntries]);
+
+  const updateFriendWeight = useCallback(async (id, weightKg) => {
+    setSaving(true);
+    try {
+      await dbUpdateFriendWeight(id, weightKg);
+      setFriends(await fetchFriends());
+    } catch {
+      setStatus("error");
+    }
+    setSaving(false);
+  }, []);
 
   if (status === "loading" && friends.length === 0) {
     return (
@@ -291,7 +317,12 @@ function Tab() {
         {tab === "ranking" && <Ranking totals={totals} />}
         {tab === "excuses" && <Excuses totals={totals} />}
         {tab === "friends" && (
-          <Friends friends={friends} onAdd={addFriend} onRemove={removeFriend} />
+          <Friends
+            friends={friends}
+            onAdd={addFriend}
+            onRemove={removeFriend}
+            onUpdateWeight={updateFriendWeight}
+          />
         )}
       </main>
 
@@ -487,7 +518,13 @@ function Editor({ friend, entry, onSave, onClear, onCancel }) {
               </div>
             </div>
           ))}
-          <div className="totline">{fmt(total)} units of pure alcohol</div>
+          <div className="totline">
+            ≈{estimateBAC(total, friend.weight_kg).toFixed(3)}% estimated peak BAC
+            <small className="bacnote">
+              Rough estimate assuming it all hit at once — not a real reading, not for
+              deciding whether to drive.
+            </small>
+          </div>
         </div>
       ) : (
         <div className="excuse">
@@ -583,13 +620,16 @@ function Excuses({ totals }) {
 
 /* --------------------------- friends ------------------------------ */
 
-function Friends({ friends, onAdd, onRemove }) {
+function Friends({ friends, onAdd, onRemove, onUpdateWeight }) {
   const [name, setName] = useState("");
+  const [weight, setWeight] = useState("75");
   const add = () => {
     const n = name.trim();
-    if (!n) return;
-    onAdd(n);
+    const w = Number(weight);
+    if (!n || !w || w <= 0) return;
+    onAdd(n, w);
     setName("");
+    setWeight("75");
   };
   return (
     <div>
@@ -600,20 +640,26 @@ function Friends({ friends, onAdd, onRemove }) {
           onKeyDown={(e) => e.key === "Enter" && add()}
           placeholder="Add a name"
         />
+        <input
+          value={weight}
+          onChange={(e) => setWeight(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && add()}
+          placeholder="kg"
+          type="number"
+          inputMode="numeric"
+          className="weightinput"
+        />
         <button className="primary" onClick={add}>Add</button>
       </div>
       <ul className="flist">
         {friends.map((f) => (
-          <li key={f.id}>
-            <i className="chip" style={{ background: f.color }} />
-            <span>{f.name}</span>
-            <button className="ghost sm" onClick={() => onRemove(f.id)}>Remove</button>
-          </li>
+          <FriendRow key={f.id} friend={f} onRemove={onRemove} onUpdateWeight={onUpdateWeight} />
         ))}
       </ul>
       <p className="legend">
         Everyone signed in sees and edits the same list. One unit = 10 ml of pure
-        alcohol, so a beer counts as 2.5 and a shot as 2.
+        alcohol, so a beer counts as 2.5 and a shot as 2. Weight is used only for
+        the rough BAC estimate shown when logging a day.
       </p>
       <p className="legend">
         <button className="ghost sm" style={{ marginLeft: 0 }} onClick={() => supabase.auth.signOut()}>
@@ -621,6 +667,33 @@ function Friends({ friends, onAdd, onRemove }) {
         </button>
       </p>
     </div>
+  );
+}
+
+function FriendRow({ friend, onRemove, onUpdateWeight }) {
+  const [weight, setWeight] = useState(String(friend.weight_kg ?? 75));
+
+  const commit = () => {
+    const w = Number(weight);
+    if (w > 0 && w !== friend.weight_kg) onUpdateWeight(friend.id, w);
+  };
+
+  return (
+    <li>
+      <i className="chip" style={{ background: friend.color }} />
+      <span>{friend.name}</span>
+      <input
+        className="weightinput sm"
+        value={weight}
+        onChange={(e) => setWeight(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => e.key === "Enter" && e.target.blur()}
+        type="number"
+        inputMode="numeric"
+      />
+      <span className="kglabel">kg</span>
+      <button className="ghost sm" onClick={() => onRemove(friend.id)}>Remove</button>
+    </li>
   );
 }
 
@@ -726,6 +799,7 @@ function Style() {
 .stepper span{min-width:26px; text-align:center; font-weight:800; font-size:16px}
 .totline{margin-top:10px; padding-top:10px; border-top:1px solid var(--line);
   font-size:13px; color:var(--amber); font-weight:600}
+.bacnote{display:block; margin-top:4px; font-size:11px; color:var(--mute); font-weight:400}
 
 .chips{display:flex; flex-wrap:wrap; gap:6px; margin-bottom:10px}
 .pill{padding:8px 11px; border:1px solid var(--line); border-radius:999px; font-size:13px; color:var(--mute)}
@@ -757,8 +831,11 @@ function Style() {
 
 .addrow{display:flex; gap:8px; margin-bottom:18px}
 .addrow .primary{margin-left:0; white-space:nowrap}
+.weightinput{width:64px; flex:none; text-align:center}
+.weightinput.sm{width:52px; padding:6px 8px; margin-left:auto}
+.kglabel{font-size:12px; color:var(--mute)}
 .flist{list-style:none; margin:0; padding:0}
-.flist li{display:flex; align-items:center; gap:10px; padding:13px 2px; border-bottom:1px solid var(--line); font-size:15px}
+.flist li{display:flex; align-items:center; gap:8px; padding:13px 2px; border-bottom:1px solid var(--line); font-size:15px}
 
 @media (prefers-reduced-motion: reduce){ .tabapp *{transition:none !important} }
 `}</style>

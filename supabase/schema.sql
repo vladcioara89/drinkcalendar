@@ -5,6 +5,7 @@ create table friends (
   id uuid primary key default gen_random_uuid(),
   name text not null,
   color text not null default '#E8A33D',
+  weight_kg numeric not null default 75, -- used for the rough BAC estimate
   created_at timestamptz default now()
 );
 

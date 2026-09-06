@@ -137,6 +137,15 @@ To change the PIN later, edit that same user's password in Authentication → Us
 There's no per-person audit trail this way — everyone edits as the same account —
 which is fine for a small group that trusts each other.
 
+## Estimated BAC
+
+Each friend has a `weight_kg` (set when adding them, editable in the Friends tab),
+used to show a rough estimated peak blood alcohol % when logging a day — a Widmark
+formula estimate assuming the day's drinks all hit at once. This is **not** a real
+BAC reading: entries are logged per day, not per drink-with-a-timestamp, so there's
+no way to know if those drinks were spread over 6 hours or 20 minutes, which changes
+actual BAC enormously. Don't use it to decide whether it's safe to drive.
+
 ## Ideas worth adding later
 
 - Realtime subscription so the calendar updates live when someone logs from the bar.

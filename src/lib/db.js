@@ -11,10 +11,10 @@ export async function fetchFriends() {
   return data;
 }
 
-export async function addFriend(name, color) {
+export async function addFriend(name, color, weightKg) {
   const { data, error } = await supabase
     .from("friends")
-    .insert({ name, color })
+    .insert({ name, color, weight_kg: weightKg })
     .select()
     .single();
   if (error) throw error;
@@ -23,6 +23,14 @@ export async function addFriend(name, color) {
 
 export async function removeFriend(id) {
   const { error } = await supabase.from("friends").delete().eq("id", id);
+  if (error) throw error;
+}
+
+export async function updateFriendWeight(id, weightKg) {
+  const { error } = await supabase
+    .from("friends")
+    .update({ weight_kg: weightKg })
+    .eq("id", id);
   if (error) throw error;
 }
 
