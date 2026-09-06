@@ -369,7 +369,9 @@ function Tab({ session }) {
           <Calendar friends={friends} entries={entries} cursor={cursor} onPick={setOpenDay} />
         )}
         {tab === "ranking" && <Ranking totals={totals} />}
-        {tab === "excuses" && <Excuses totals={totals} myFriendId={myFriend?.id ?? null} />}
+        {tab === "excuses" && (
+          <Excuses totals={totals} myFriendId={myFriend?.id ?? null} onDelete={clearEntry} />
+        )}
         {tab === "friends" && (
           <Friends
             friends={friends}
@@ -711,7 +713,20 @@ function SmileyIcon() {
   );
 }
 
-function Excuses({ totals, myFriendId }) {
+function TrashIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 7h16" />
+      <path d="M9 7V4h6v3" />
+      <path d="M6 7l1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13" />
+      <path d="M10 11v6" />
+      <path d="M14 11v6" />
+    </svg>
+  );
+}
+
+function Excuses({ totals, myFriendId, onDelete }) {
   const all = totals
     .flatMap((t) => t.excuses.map((e) => ({ ...e, name: t.name, color: t.color })))
     .sort((a, b) => a.date.localeCompare(b.date));
@@ -758,6 +773,7 @@ function Excuses({ totals, myFriendId }) {
         entryReactions.forEach((r) => { counts[r.emoji] = (counts[r.emoji] || 0) + 1; });
         const mine = entryReactions.find((r) => r.reactor_friend_id === myFriendId);
         const canReact = myFriendId && e.friendId !== myFriendId;
+        const isMine = myFriendId && e.friendId === myFriendId;
         const pickerOpen = pickerFor === e.id;
         return (
           <li key={e.id}>
@@ -773,6 +789,15 @@ function Excuses({ totals, myFriendId }) {
                     aria-label="Adaugă o reacție"
                   >
                     <SmileyIcon />
+                  </button>
+                )}
+                {isMine && (
+                  <button
+                    className="delreact"
+                    onClick={() => onDelete(e.friendId, e.date).catch(() => {})}
+                    aria-label="Șterge scuza"
+                  >
+                    <TrashIcon />
                   </button>
                 )}
               </div>
@@ -1014,6 +1039,8 @@ function Style() {
 .exreaction.mine{border-color:var(--amber)}
 .addreact{color:var(--mute); display:inline-flex; padding:2px}
 .addreact:hover{color:var(--amber)}
+.delreact{color:var(--mute); display:inline-flex; padding:2px}
+.delreact:hover{color:#D2603A}
 .expicker{display:flex; flex-wrap:wrap; gap:4px; margin-top:6px; padding:6px; background:var(--panel);
   border:1px solid var(--line); border-radius:10px}
 .emojibtn{font-size:17px; padding:4px 7px; border-radius:8px; border:1px solid transparent}
