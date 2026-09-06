@@ -406,6 +406,7 @@ function Tab({ session }) {
           date={openDay}
           friends={friends}
           entriesForDay={entries[openDay] || {}}
+          myFriendId={myFriend?.id ?? null}
           onSaveEntry={saveEntry}
           onClearEntry={clearEntry}
           close={() => setOpenDay(null)}
@@ -475,7 +476,7 @@ function Calendar({ friends, entries, cursor, onPick }) {
 
 const NOT_YOUR_RECORD_MESSAGE = "MUIE MA, UMBLI CU CIOARA VOPSITA";
 
-function DaySheet({ date, friends, entriesForDay, onSaveEntry, onClearEntry, close }) {
+function DaySheet({ date, friends, entriesForDay, myFriendId, onSaveEntry, onClearEntry, close }) {
   const [editing, setEditing] = useState(null);
   const [denied, setDenied] = useState(false);
   const d = new Date(date + "T00:00:00");
@@ -543,7 +544,7 @@ function DaySheet({ date, friends, entriesForDay, onSaveEntry, onClearEntry, clo
                     {e && u === 0 && <span className="dry">{e.excuse || "zi fără alcool"}</span>}
                   </span>
                 </button>
-                {e && (
+                {e && f.id === myFriendId && (
                   <button className="rowdel" onClick={() => clear(f.id)} aria-label={`Șterge înregistrarea lui ${f.name}`}>
                     <TrashIcon />
                   </button>
